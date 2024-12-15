@@ -142,7 +142,7 @@ def download_file(message, file_name, file_size, context):
 
 # Main function
 def main():
-    updater = Updater("YOUR_BOT_TOKEN")
+    updater = Updater("7502020526:AAHGAIk6yBS0TL2J1wOpd_-mFN1HorgVc1s")
     dispatcher = updater.dispatcher
 
     dispatcher.add_handler(CommandHandler("start", start))
