@@ -1,15 +1,7 @@
 import os
 import requests
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import (
-    Updater,
-    CommandHandler,
-    CallbackQueryHandler,
-    MessageHandler,
-    Filters,
-    CallbackContext,
-)
-from telegram.constants import ChatAction
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 from time import time
 
 # Function to format file size
@@ -21,33 +13,33 @@ def format_size(size):
     return f"{size:.2f} TB"
 
 # Start command
-def start(update: Update, context: CallbackContext):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("Help", callback_data="help")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text("Welcome to the bot! Use the buttons below:", reply_markup=reply_markup)
+    await update.message.reply_text("Welcome to the bot! Use the buttons below:", reply_markup=reply_markup)
 
 # Help command
-def help_command(update: Update, context: CallbackContext):
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("Upload URL", callback_data="upload_url")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text("Choose an option:", reply_markup=reply_markup)
+    await update.message.reply_text("Choose an option:", reply_markup=reply_markup)
 
 # Callback query handler
-def button(update: Update, context: CallbackContext):
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    query.answer()
+    await query.answer()
 
     if query.data == "help":
-        help_command(update, context)
+        await help_command(update, context)
     elif query.data == "upload_url":
-        query.message.reply_text("Please send the URL of the file you want to upload:")
+        await query.message.reply_text("Please send the URL of the file you want to upload:")
 
 # Handle URL input
-def handle_url(update: Update, context: CallbackContext):
+async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text
     try:
         # Fetch file metadata
@@ -61,29 +53,29 @@ def handle_url(update: Update, context: CallbackContext):
             [InlineKeyboardButton("Rename", callback_data=f"rename|{file_name}|{file_size}")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        update.message.reply_text(
+        await update.message.reply_text(
             f"File detected:\n\nTitle: {file_name}\nSize: {format_size(file_size)}\n\nChoose an option:",
             reply_markup=reply_markup,
         )
     except Exception as e:
-        update.message.reply_text(f"Error fetching file metadata: {e}")
+        await update.message.reply_text(f"Error fetching file metadata: {e}")
 
 # Handle rename or default option
-def handle_file_option(update: Update, context: CallbackContext):
+async def handle_file_option(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    query.answer()
+    await query.answer()
     data = query.data.split("|")
     action, file_name, file_size = data[0], data[1], int(data[2])
 
     if action == "default":
-        download_file(query, file_name, file_size, context)
+        await download_file(query.message, file_name, file_size, context)
     elif action == "rename":
         context.user_data["file_name"] = file_name
         context.user_data["file_size"] = file_size
-        query.message.reply_text("Send the new file name (without extension):")
+        await query.message.reply_text("Send the new file name (without extension):")
 
 # Handle renaming
-def handle_rename(update: Update, context: CallbackContext):
+async def handle_rename(update: Update, context: ContextTypes.DEFAULT_TYPE):
     new_name = update.message.text
     file_name = context.user_data["file_name"]
     file_size = context.user_data["file_size"]
@@ -93,10 +85,10 @@ def handle_rename(update: Update, context: CallbackContext):
     new_file_name = f"{new_name}{extension}"
 
     # Start download
-    download_file(update.message, new_file_name, file_size, context)
+    await download_file(update.message, new_file_name, file_size, context)
 
 # Download and upload file with progress bar
-def download_file(message, file_name, file_size, context):
+async def download_file(message, file_name, file_size, context):
     url = message.text if isinstance(message, Update) else message.reply_to_message.text
     temp_file = f"temp_{file_name}"
     chunk_size = 1024 * 1024  # 1MB
@@ -116,7 +108,7 @@ def download_file(message, file_name, file_size, context):
                     elapsed_time = time() - start_time
                     speed = downloaded / elapsed_time
                     eta = (file_size - downloaded) / speed
-                    message.reply_text(
+                    await message.reply_text(
                         f"Downloading: {file_name}\n"
                         f"Progress: {percentage:.2f}%\n"
                         f"Speed: {format_size(speed)}/s\n"
@@ -130,7 +122,7 @@ def download_file(message, file_name, file_size, context):
         uploaded += chunk_size
         percentage = (uploaded / file_size) * 100
         if int(percentage) % 10 == 0:  # Update every 10%
-            message.reply_text(
+            await message.reply_text(
                 f"Uploading: {file_name}\n"
                 f"Progress: {percentage:.2f}%",
                 parse_mode="Markdown",
@@ -138,21 +130,20 @@ def download_file(message, file_name, file_size, context):
 
     # Cleanup
     os.remove(temp_file)
-    message.reply_text(f"File {file_name} uploaded successfully!")
+    await message.reply_text(f"File {file_name} uploaded successfully!")
 
 # Main function
-def main():
-    updater = Updater("7502020526:AAHGAIk6yBS0TL2J1wOpd_-mFN1HorgVc1s")
-    dispatcher = updater.dispatcher
+async def main():
+    application = ApplicationBuilder().token("7502020526:AAHGAIk6yBS0TL2J1wOpd_-mFN1HorgVc1s").build()
 
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("help", help_command))
-    dispatcher.add_handler(CallbackQueryHandler(button))
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_url))
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_rename))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CallbackQueryHandler(button))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_rename))
 
-    updater.start_polling()
-    updater.idle()
+    await application.run_polling()
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+    asyncio.run(main())
