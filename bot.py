@@ -13,7 +13,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TOKEN = 'YOUR_BOT_API_TOKEN'
+TOKEN = '7502020526:AAHGAIk6yBS0TL2J1wOpd_-mFN1HorgVc1s'
 bot = Bot(token=TOKEN)
 MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024  # 2GB
 
