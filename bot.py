@@ -56,7 +56,6 @@ def handle_url(update: Update, context: CallbackContext) -> None:
 
     if valid_url(url):
         task = download_file.delay(url, update.message.chat_id)
-        context.bot.send_message(chat_id=update.effective_chat.id, text=f'Queued task with ID: {task.id}')
     else:
         update.message.reply_text('Invalid URL!')
 
@@ -72,23 +71,35 @@ def download_file(self, url, chat_id):
     start_time = time()
     file_name = url.split('/')[-1]
 
-    async def fetch(url, session):
+    async def fetch(url, session, chat_id):
         async with session.get(url) as response:
             if response.status == 200:
                 file_size = int(response.headers.get('content-length', 0))
                 if file_size > MAX_FILE_SIZE:
                     bot.send_message(chat_id=chat_id, text='File size exceeds 2GB limit.')
                     return None
+
+                downloaded = 0
+                progress_threshold = file_size // 10
+                next_progress_update = progress_threshold
+
                 async with aiofiles.open(file_name, 'wb') as f:
                     async for chunk in response.content.iter_chunked(1024):
                         await f.write(chunk)
+                        downloaded += len(chunk)
+
+                        if downloaded >= next_progress_update:
+                            percentage = (downloaded / file_size) * 100
+                            bot.send_message(chat_id=chat_id, text=f'Download {percentage:.0f}% complete.')
+                            next_progress_update += progress_threshold
+
                 return file_name
             else:
                 return None
 
     async def download():
         async with ClientSession() as session:
-            file = await fetch(url, session)
+            file = await fetch(url, session, chat_id)
             if file:
                 bot.send_message(chat_id=chat_id, text='Uploading...')
                 with open(file, 'rb') as f:
