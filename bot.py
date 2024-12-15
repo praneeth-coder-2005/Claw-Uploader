@@ -23,6 +23,21 @@ MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024  # 2GB
 # Set up Redis
 redis_conn = Redis.from_url(REDIS_URL)
 
+# Rate limiting: Limit to 5 requests per hour per user
+RATE_LIMIT = 5
+RATE_LIMIT_DURATION = 3600  # 1 hour
+
+def rate_limited(user_id):
+    count = redis_conn.get(f'rate_limit_{user_id}')
+    if count is None:
+        redis_conn.set(f'rate_limit_{user_id}', 1, ex=RATE_LIMIT_DURATION)
+        return False
+    elif int(count) < RATE_LIMIT:
+        redis_conn.incr(f'rate_limit_{user_id}')
+        return False
+    else:
+        return True
+
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Welcome! Send me a URL to download the file.')
 
@@ -30,6 +45,11 @@ def help_command(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Send a valid URL and I will download and send you the file.')
 
 def handle_url(update: Update, context: CallbackContext) -> None:
+    user_id = update.message.from_user.id
+    if rate_limited(user_id):
+        update.message.reply_text('You have exceeded the request limit. Please try again later.')
+        return
+
     url = update.message.text
     update.message.reply_text('Processing your request...')
 
