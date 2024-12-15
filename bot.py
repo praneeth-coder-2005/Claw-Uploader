@@ -13,7 +13,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TOKEN = '7502020526:AAHGAIk6yBS0TL2J1wOpd_-mFN1HorgVc1s'
+TOKEN = 'YOUR_BOT_API_TOKEN'
 bot = Bot(token=TOKEN)
 MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024  # 2GB
 
@@ -55,6 +55,7 @@ def download_file(url, chat_id):
                 downloaded = 0
                 progress_threshold = file_size // 10
                 next_progress_update = progress_threshold
+                progress_message = bot.send_message(chat_id=chat_id, text='Download [0%]')
 
                 async with aiofiles.open(file_name, 'wb') as f:
                     async for chunk in response.content.iter_chunked(1024):
@@ -63,7 +64,8 @@ def download_file(url, chat_id):
 
                         if downloaded >= next_progress_update:
                             percentage = (downloaded / file_size) * 100
-                            bot.send_message(chat_id=chat_id, text=f'Download {percentage:.0f}% complete.')
+                            progress_bar = ('█' * (downloaded // progress_threshold)) + ('░' * (10 - (downloaded // progress_threshold)))
+                            bot.edit_message_text(chat_id=chat_id, message_id=progress_message.message_id, text=f'Download [{progress_bar}] {percentage:.0f}% complete')
                             next_progress_update += progress_threshold
 
                 return file_name
