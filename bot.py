@@ -3,8 +3,7 @@ from telegram import Update, Bot
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 import requests
 import os
-from celery import Celery
-from aiohttp import ClientSession
+import aiohttp
 import aiofiles
 from time import time
 from concurrent.futures import ThreadPoolExecutor
@@ -15,11 +14,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 TOKEN = '7502020526:AAHGAIk6yBS0TL2J1wOpd_-mFN1HorgVc1s'
-CELERY_BROKER_URL = 'memory://'
-CELERY_BACKEND_URL = 'memory://'
-
 bot = Bot(token=TOKEN)
-app = Celery('tasks', broker=CELERY_BROKER_URL, backend=CELERY_BACKEND_URL)
 MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024  # 2GB
 
 def start(update: Update, context: CallbackContext) -> None:
@@ -33,7 +28,7 @@ def handle_url(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Processing your request...')
 
     if valid_url(url):
-        download_file.apply_async(args=[url, update.message.chat_id], serializer='json')
+        download_file(url, update.message.chat_id)
     else:
         update.message.reply_text('Invalid URL!')
 
@@ -44,8 +39,7 @@ def valid_url(url):
     except:
         return False
 
-@app.task(bind=True)
-def download_file(self, url, chat_id):
+def download_file(url, chat_id):
     bot.send_message(chat_id=chat_id, text='Downloading...')
     start_time = time()
     file_name = url.split('/')[-1]
@@ -77,7 +71,7 @@ def download_file(self, url, chat_id):
                 return None
 
     async def download():
-        async with ClientSession() as session:
+        async with aiohttp.ClientSession() as session:
             file = await fetch(url, session, chat_id)
             if file:
                 bot.send_message(chat_id=chat_id, text='Uploading...')
@@ -89,9 +83,8 @@ def download_file(self, url, chat_id):
             else:
                 bot.send_message(chat_id=chat_id, text='Failed to download the file.')
 
-    import asyncio
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(download())
+    executor = ThreadPoolExecutor(max_workers=1)
+    executor.submit(lambda: asyncio.run(download()))
 
 def main():
     updater = Updater(TOKEN, use_context=True)
