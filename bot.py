@@ -134,7 +134,7 @@ async def download_file(message, file_name, file_size, context):
 
 # Main function
 async def main():
-    application = ApplicationBuilder().token("7502020526:AAHGAIk6yBS0TL2J1wOpd_-mFN1HorgVc1s").build()
+    application = ApplicationBuilder().token("YOUR_BOT_TOKEN").build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
@@ -146,4 +146,9 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(main())
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:  # No running event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    loop.run_until_complete(main())
