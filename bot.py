@@ -8,6 +8,7 @@ from aiohttp import ClientSession
 import aiofiles
 from redis import Redis
 from time import time
+from concurrent.futures import ThreadPoolExecutor
 
 # Enable logging
 logging.basicConfig(
@@ -68,7 +69,6 @@ def valid_url(url):
 
 @app.task(bind=True)
 def download_file(self, url, chat_id):
-    bot.send_message(chat_id=chat_id, text='Downloading...')
     start_time = time()
     file_name = url.split('/')[-1]
 
