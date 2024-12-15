@@ -134,7 +134,7 @@ async def download_file(message, file_name, file_size, context):
 
 # Main function
 async def main():
-    application = ApplicationBuilder().token("YOUR_BOT_TOKEN").build()
+    application = ApplicationBuilder().token("7502020526:AAHGAIk6yBS0TL2J1wOpd_-mFN1HorgVc1s").build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
