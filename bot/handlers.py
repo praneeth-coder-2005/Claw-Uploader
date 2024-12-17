@@ -186,9 +186,9 @@ async def upload_file_chunked(client, file_path, chunk_size, progress_callback, 
     offset = 0
     
     with open(file_path, 'rb') as f:
-        while offset < file_size:
+         part = 0
+         while offset < file_size:
             chunk = f.read(chunk_size)
-            part = offset // chunk_size
             
             if not chunk:
                 break
@@ -201,6 +201,7 @@ async def upload_file_chunked(client, file_path, chunk_size, progress_callback, 
             ))
             
             offset += len(chunk)
+            part+=1
             if progress_callback:
                 await progress_callback(offset, file_size)
     
