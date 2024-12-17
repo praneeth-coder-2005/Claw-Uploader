@@ -10,6 +10,7 @@ from bot.config import API_ID, API_HASH
 
 # To (in bot/handlers/callbacks.py):
 from bot.utils import upload_thumb
+from bot.handlers.commands import settings_handler
 bot = TelegramClient('bot', API_ID, API_HASH)
 
 # Register all handlers
