@@ -10,7 +10,6 @@ from bot.utils import get_file_name_extension, extract_filename_from_content_dis
 from bot.config import MAX_FILE_SIZE, DEFAULT_PREFIX
 from bot.services.progress import ProgressManager
 from bot.handlers.callbacks import download_and_upload
-
 progress_manager = ProgressManager()
 
 async def url_processing(event):
