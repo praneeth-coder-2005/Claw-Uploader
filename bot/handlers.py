@@ -63,6 +63,11 @@ class ProgressManager:
         task = self.get_task(task_id)
         if task:
             task["cancel_flag"] = value
+    
+    def set_message_id(self, task_id, message_id):
+         task = self.get_task(task_id)
+         if task:
+            task["message_id"] = message_id
 
 # Initialize ProgressManager
 progress_manager = ProgressManager()
@@ -158,7 +163,10 @@ async def default_file_handler(event):
             file_size = task_data["file_size"]
             url = task_data["url"]
             mime_type = task_data["mime_type"]
-            await event.answer(message="Processing file upload..")
+            
+            message = await event.answer(message="Processing file upload..")
+            progress_manager.set_message_id(task_id, message.id)
+
             await download_and_upload(event, url, f"{file_name}{file_extension}", file_size, mime_type, task_id, file_extension, event)
         else:
              await event.answer("No Active Download")
@@ -193,7 +201,8 @@ async def rename_process(event):
             url = task_data["url"]
             mime_type = task_data["mime_type"]
             await event.delete()
-            await event.respond(f"Your new File name is: {new_file_name}{file_extension}")
+            message = await event.respond(f"Your new File name is: {new_file_name}{file_extension}")
+            progress_manager.set_message_id(task_id, message.id)
             await download_and_upload(event, url, f"{new_file_name}{file_extension}", file_size, mime_type, task_id, file_extension, event)
             return
     except Exception as e:
@@ -225,11 +234,11 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
         download_speed = 0
         upload_speed = 0
 
-        progress_bar = ProgressBar(file_size, "Processing", bot, current_event, task_id, file_name, file_size)
         task_data = progress_manager.get_task(task_id)
+        message_id = task_data.get("message_id")
+        progress_bar = ProgressBar(file_size, "Processing", bot, current_event, task_id, file_name, file_size, message_id=message_id)
         task_data["progress_bar"] = progress_bar
-
-
+        
         for attempt in range(MAX_RETRIES):
             try:
                 async with aiohttp.ClientSession() as session:
@@ -278,10 +287,9 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                     upload_chunk_size = math.ceil(file_size / MAX_FILE_PARTS)
                     logging.warning(f"Reducing upload chunk size to {upload_chunk_size / (1024*1024):.2f} MB due to excessive parts {parts}")
                 
-                
-                file =  await bot.upload_file(
-                        f,
-                        progress_callback=lambda current, total: asyncio.create_task(
+                upload_file = await bot.upload_file(
+                    f,
+                     progress_callback=lambda current, total: asyncio.create_task(
                             progress_bar.update_progress(current / total))
                     )
                 uploaded_size = 0
@@ -292,7 +300,7 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                     await bot(SendMediaRequest(
                         peer=await bot.get_input_entity(current_event.chat_id),
                         media=InputMediaUploadedDocument(
-                            file=file,
+                            file=upload_file,
                             mime_type=mime_type,
                             attributes=[
                                 DocumentAttributeFilename(file_name)
