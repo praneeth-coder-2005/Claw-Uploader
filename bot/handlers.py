@@ -188,7 +188,7 @@ async def upload_file_chunked(client, file_path, chunk_size, progress_callback):
             progress_callback=progress_callback
         )
     return file
-
+    
 
 async def download_and_upload(event, url, file_name, file_size, mime_type, task_id, file_extension):
     temp_file_path = f"temp_{task_id}"
@@ -256,12 +256,7 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                       progress_callback=lambda current, total: asyncio.create_task(
                           progress_bar.update_progress(current / total))
                     )
-
-            uploaded_size = 0
-            elapsed_upload_time = time.time() - start_upload_time
-            upload_speed = file_size / elapsed_upload_time if elapsed_upload_time > 0 else 0
-            await progress_bar.update_progress(1, download_speed=download_speed, upload_speed=upload_speed)
-            uploaded = await bot(SendMediaRequest(
+                uploaded = await bot(SendMediaRequest(
                 peer=await bot.get_input_entity(event.chat_id),
                 media=InputMediaUploadedDocument(
                     file=file,
@@ -270,10 +265,16 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                         DocumentAttributeFilename(file_name)
                     ]
                 ),
-                message='',
+                message=f"File Name: {file_name}{file_extension}",
             ))
+                
+            uploaded_size = 0
+            elapsed_upload_time = time.time() - start_upload_time
+            upload_speed = file_size / elapsed_upload_time if elapsed_upload_time > 0 else 0
+            await progress_bar.update_progress(1, download_speed=download_speed, upload_speed=upload_speed)
+            
             await progress_bar.stop("Upload Complete")
-            await event.respond(uploaded, file=file, caption=f"File Name: {file_name}{file_extension}")
+           
         else:
              await event.respond(
                 f"Error: Download incomplete (Size mismatch) file_size is: {file_size} and downloaded size is: {downloaded_size}")
