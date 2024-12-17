@@ -31,7 +31,44 @@ MAX_FILE_PARTS = 3000
 
 # Global Class for progress messages
 class ProgressManager:
-    # ... Your existing code ...
+    def __init__(self):
+        self.progress_messages = {}
+
+    def add_task(self, task_id, data):
+        self.progress_messages[task_id] = data
+
+    def get_task(self, task_id):
+        return self.progress_messages.get(task_id)
+
+    def remove_task(self, task_id):
+        if task_id in self.progress_messages:
+            del self.progress_messages[task_id]
+
+    def update_task_status(self, task_id, status):
+        if task_id in self.progress_messages:
+            self.progress_messages[task_id]["status"] = status
+
+    def get_task_by_status(self, status):
+        for task_id, data in self.progress_messages.items():
+            if "status" in data and data["status"] == status:
+                return task_id, data
+        return None, None
+
+    def get_cancel_flag(self, task_id):
+        task = self.get_task(task_id)
+        if task:
+            return task.get("cancel_flag", False)
+        return False
+
+    def set_cancel_flag(self, task_id, value):
+        task = self.get_task(task_id)
+        if task:
+            task["cancel_flag"] = value
+
+    def set_message_id(self, task_id, message_id):
+        task = self.get_task(task_id)
+        if task:
+            task["message_id"] = message_id
 
 # Initialize ProgressManager
 progress_manager = ProgressManager()
@@ -411,25 +448,4 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                     if thumb_id:
                         media = InputMediaUploadedDocument(
                             file=file,
-                            mime_type=mime_type,
-                            attributes=[DocumentAttributeFilename(file_name)],
-                            thumb=types.InputFile(id=thumb_id, parts=1, name="thumb.jpg", md5_checksum="")
-                        )
-                    else:
-                        media = InputMediaUploadedDocument(
-                            file=file,
-                            mime_type=mime_type,
-                            attributes=[DocumentAttributeFilename(file_name)]
-                        )
-                    
-                    await bot(SendMediaRequest(
-                        peer=await bot.get_input_entity(current_event.chat_id),
-                        media=media,
-                        message=f"File Name: {file_name}{file_extension}",
-                    ))
-                    await progress_bar.stop("Upload Complete")
-                except FloodWaitError as e:
-                    logging.warning(f"Flood wait error during upload: {e}")
-                    await asyncio.sleep(e.seconds)
-                    await download_and_upload(event, url, file_name, file_size, mime_type, task_id, file_extension, current_event)
-                 
+                        
