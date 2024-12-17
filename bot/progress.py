@@ -24,6 +24,10 @@ class ProgressBar:
         self.upload_speed = 0
         self.average_download_speed_buffer = []
         self.average_upload_speed_buffer = []
+        self.message_id = None
+
+    def set_message_id(self, message_id):
+        self.message_id = message_id
 
     def update_average_speed(self, speed, buffer):
         buffer.append(speed)
@@ -89,7 +93,6 @@ class ProgressBar:
                     self.last_sent_progress = percentage
         except Exception as e:
             logging.error(f"Error in update progress method: {e}")
-
 
     async def stop(self, text="Canceled"):
         self.done = True
