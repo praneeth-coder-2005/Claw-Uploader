@@ -180,15 +180,6 @@ async def cancel_handler(event):
         logging.error(f"Error in cancel_handler: {e}")
         await event.respond(f"An error occurred. Please try again later")
 
-async def upload_file_chunked(client, file_path, chunk_size, progress_callback):
-      
-    with open(file_path, 'rb') as f:
-        file = await client.upload_file(
-            f,
-            progress_callback=progress_callback
-        )
-    return file
-    
 
 async def download_and_upload(event, url, file_name, file_size, mime_type, task_id, file_extension):
     temp_file_path = f"temp_{task_id}"
@@ -249,14 +240,16 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                   upload_chunk_size = math.ceil(file_size / MAX_FILE_PARTS)
                   logging.warning(f"Reducing upload chunk size to {upload_chunk_size / (1024*1024):.2f} MB due to excessive parts {parts}")
                 
-                file = await upload_file_chunked(
-                      bot,
-                      temp_file_path,
-                      upload_chunk_size,
+                file = await bot.upload_file(
+                      f,
                       progress_callback=lambda current, total: asyncio.create_task(
                           progress_bar.update_progress(current / total))
                     )
-                uploaded = await bot(SendMediaRequest(
+            uploaded_size = 0
+            elapsed_upload_time = time.time() - start_upload_time
+            upload_speed = file_size / elapsed_upload_time if elapsed_upload_time > 0 else 0
+            await progress_bar.update_progress(1, download_speed=download_speed, upload_speed=upload_speed)
+            uploaded = await bot(SendMediaRequest(
                 peer=await bot.get_input_entity(event.chat_id),
                 media=InputMediaUploadedDocument(
                     file=file,
@@ -265,14 +258,9 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                         DocumentAttributeFilename(file_name)
                     ]
                 ),
-                message=f"File Name: {file_name}{file_extension}",
+                 message=f"File Name: {file_name}{file_extension}",
             ))
                 
-            uploaded_size = 0
-            elapsed_upload_time = time.time() - start_upload_time
-            upload_speed = file_size / elapsed_upload_time if elapsed_upload_time > 0 else 0
-            await progress_bar.update_progress(1, download_speed=download_speed, upload_speed=upload_speed)
-            
             await progress_bar.stop("Upload Complete")
            
         else:
