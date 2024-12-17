@@ -19,14 +19,13 @@ from bot.config import BOT_TOKEN, API_ID, API_HASH, DEFAULT_THUMBNAIL, DEFAULT_P
 from bot.services.progress import ProgressManager
 
 import asyncio
-from bot.handlers.commands import settings_handler
 
 progress_manager = ProgressManager()
 
 async def set_thumbnail_handler(event):
     user_id = event.sender_id
     progress_manager.update_task_status(user_id, "set_thumbnail")
-    await event.respond("Please send me the thumbnail URL:")
+    await event.respond("Please send me the image to use as a thumbnail:")
 
 async def set_prefix_handler(event):
     user_id = event.sender_id
