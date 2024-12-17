@@ -7,10 +7,7 @@ import time
 import math
 import aiohttp
 import magic
-# bot/upload_downloader.py
-# ... other imports ...
-from bot.services.progress_manager import ProgressManager  # Correct import
-# ... rest of the code ...
+
 from telethon import types
 from telethon.errors import FloodWaitError
 from telethon.tl.functions.messages import SendMediaRequest
@@ -18,7 +15,7 @@ from telethon.tl.types import InputMediaUploadedDocument, DocumentAttributeFilen
 
 from bot.config import MAX_RETRIES, RETRY_DELAY, CHUNK_SIZE, MAX_FILE_PARTS
 from bot.utils import upload_thumb
-from bot.services.progress import ProgressManager
+from bot.services.progress_manager import ProgressManager
 from bot.progress import ProgressBar
 
 progress_manager = ProgressManager()
