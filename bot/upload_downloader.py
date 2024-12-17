@@ -29,6 +29,13 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
         upload_speed = 0
 
         task_data = progress_manager.get_task(task_id)
+
+        # Robust check for task_data
+        if task_data is None:
+            logging.error(f"Task data not found for task_id: {task_id}")
+            await current_event.respond("Error: Task data not found. Please try again.")
+            return
+
         message_id = task_data.get("message_id")
         progress_bar = ProgressBar(file_size, "Processing", event.client, current_event, task_id, file_name, file_size)
         if message_id:
