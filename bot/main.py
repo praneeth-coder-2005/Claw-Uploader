@@ -11,7 +11,10 @@ from bot.config import API_ID, API_HASH, BOT_TOKEN, DEFAULT_PREFIX, DEFAULT_THUM
 from bot.utils import get_user_settings, set_user_setting, upload_thumb, get_file_name_extension, extract_filename_from_content_disposition
 from bot.services.progress import ProgressManager
 from bot.progress import ProgressBar
-
+# bot/main.py
+# ... other imports ...
+from bot.services.progress_manager import ProgressManager  # Correct import
+# ... rest of your code ...
 # Initialize ProgressManager and bot
 progress_manager = ProgressManager()
 bot = TelegramClient('bot', API_ID, API_HASH)
