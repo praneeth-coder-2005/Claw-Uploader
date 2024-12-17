@@ -5,6 +5,7 @@ import time
 import uuid
 from urllib.parse import urlparse
 import traceback
+import re
 
 import aiohttp
 import magic
@@ -47,6 +48,20 @@ def get_file_name_extension(url):
         return "unknown", ""
 
 
+def extract_filename_from_content_disposition(content_disposition):
+    if not content_disposition:
+        return None
+    
+    filename_match = re.search(r'filename="([^"]+)"', content_disposition)
+    if filename_match:
+        return filename_match.group(1)
+    
+    filename_star_match = re.search(r"filename\*=UTF-8''([^;]*)",content_disposition)
+    if filename_star_match:
+        return filename_star_match.group(1)
+        
+    return None
+
 # Custom progress bar class
 class ProgressBar:
     def __init__(self, total, description, client, event, task_id, file_name, file_size):
@@ -64,8 +79,10 @@ class ProgressBar:
         self.start_time = time.time()
         self.last_sent_progress = 0
         self.done = False
+        self.download_speed = 0
+        self.upload_speed = 0
 
-    async def update_progress(self, progress, upload_speed=None, download_speed=None):
+    async def update_progress(self, progress, download_speed=None, upload_speed=None):
         try:
             self.current = int(progress * self.total)
             percentage = int((self.current / self.total) * 100)
@@ -82,14 +99,20 @@ class ProgressBar:
                         time_remaining = ((self.total - self.current) / (self.current / elapsed_time))
                         estimated_time_str = f"{int(time_remaining)}s" if time_remaining < 60 else f"{int(time_remaining / 60)}m {int(time_remaining % 60)}s"
 
-                        download_speed_str = f" {download_speed / 1024:.2f} KB/s" if download_speed else ""
-                        upload_speed_str = f" {upload_speed / 1024:.2f} KB/s" if upload_speed else ""
+                        if download_speed is not None:
+                            self.download_speed = download_speed
+                        if upload_speed is not None:
+                            self.upload_speed = upload_speed
+
+                        download_speed_str = f" {self.download_speed / 1024:.2f} KB/s" if self.download_speed else ""
+                        upload_speed_str = f" {self.upload_speed / 1024:.2f} KB/s" if self.upload_speed else ""
 
                         message_text = f"**{self.description}: {self.file_name}**\n"
                         message_text += f"File Size: {self.file_size / (1024 * 1024):.2f} MB\n"
                         message_text += f"Download Speed: {download_speed_str} Upload Speed: {upload_speed_str}\n"
                         message_text += f"ETA: {estimated_time_str}\n"
                         message_text += f"[{'#' * int(percentage / 10) + '-' * (10 - int(percentage / 10))}] {percentage}%"
+
 
                         if self.message:
                             try:
@@ -99,7 +122,7 @@ class ProgressBar:
                                 if "FloodWait" in str(e):
                                     logging.warning(f"Flood Wait detected in edit message, waiting to retry: {e}")
                                     await asyncio.sleep(int(str(e).split(" ")[-1]))
-                                    await self.update_progress(progress, upload_speed, download_speed)
+                                    await self.update_progress(progress, download_speed, upload_speed)
                                 else:
                                     logging.error(f"Failed to edit progress message: {e}, message id: {self.message}")
                         else:
@@ -110,7 +133,7 @@ class ProgressBar:
                                 if "FloodWait" in str(e):
                                     logging.warning(f"Flood Wait detected in send message, waiting to retry: {e}")
                                     await asyncio.sleep(int(str(e).split(" ")[-1]))
-                                    await self.update_progress(progress, upload_speed, download_speed)
+                                    await self.update_progress(progress, download_speed, upload_speed)
                                 else:
                                     logging.error(f"Failed to send progress message: {e}")
 
@@ -175,7 +198,6 @@ async def url_processing(event):
             return  # Ignore non-URL messages
 
         await event.delete()
-        file_name, file_extension = get_file_name_extension(url)
 
         try:
             async with aiohttp.ClientSession() as session:
@@ -188,7 +210,14 @@ async def url_processing(event):
                         return
 
                     mime_type = response.headers.get('Content-Type', "application/octet-stream")
+                    content_disposition = response.headers.get('Content-Disposition')
 
+                    original_file_name = extract_filename_from_content_disposition(content_disposition)
+                    if not original_file_name:
+                        file_name, file_extension = get_file_name_extension(url)
+                    else:
+                        file_name, file_extension = os.path.splitext(original_file_name)
+                        
                     task_id = str(uuid.uuid4())
                     progress_messages[task_id] = {
                         "file_name": file_name,
@@ -196,7 +225,7 @@ async def url_processing(event):
                         "file_size": file_size,
                         "url": url,
                         "mime_type": mime_type,
-                        "cancel_flag": False
+                         "cancel_flag": False
                     }
                     buttons = [[Button.inline("Default", data=f"default_{task_id}"),
                                 Button.inline("Rename", data=f"rename_{task_id}")]]
@@ -293,9 +322,10 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
         downloaded_size = 0
         start_time = time.time()
         download_speed = 0
+        upload_speed = 0
 
-        download_progress = ProgressBar(file_size, "Downloading", bot, event, task_id, file_name, file_size)
-        progress_messages[task_id]["progress_bar"] = download_progress
+        progress_bar = ProgressBar(file_size, "Processing", bot, event, task_id, file_name, file_size)
+        progress_messages[task_id]["progress_bar"] = progress_bar
 
         for attempt in range(MAX_RETRIES):
             try:
@@ -319,8 +349,8 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                                 if elapsed_time > 0:
                                     download_speed = downloaded_size / elapsed_time
 
-                                await download_progress.update_progress(downloaded_size / file_size,
-                                                                          download_speed=download_speed)
+                                await progress_bar.update_progress(downloaded_size / file_size,
+                                                                    download_speed=download_speed)
                         break
             except aiohttp.ClientError as e:
                 logging.error(f"Download error (attempt {attempt + 1}/{MAX_RETRIES}) from {url}: {e}")
@@ -336,9 +366,34 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                 return
 
         if downloaded_size == file_size:
-            upload_progress = ProgressBar(file_size, "Uploading", bot, event, task_id, file_name, file_size)
-            progress_messages[task_id]["progress_bar"] = upload_progress
-            await upload_file(event, temp_file_path, file_name, file_size, mime_type, upload_progress, task_id)
+                
+            start_upload_time = time.time()
+            with open(temp_file_path, "rb") as f:
+                mime = magic.Magic(mime=True)
+                mime_type = mime.from_file(temp_file_path)
+
+                file = await bot.upload_file(f, progress_callback=lambda current, total: asyncio.create_task(
+                    progress_bar.update_progress(current / total)))
+            
+            uploaded_size = 0
+            elapsed_upload_time = time.time() - start_upload_time
+            upload_speed = file_size/elapsed_upload_time if elapsed_upload_time>0 else 0
+
+            await progress_bar.update_progress(1, download_speed=download_speed,upload_speed=upload_speed)
+            
+            uploaded = await bot(SendMediaRequest(
+                peer=await bot.get_input_entity(event.chat_id),
+                media=InputMediaUploadedDocument(
+                    file=file,
+                    mime_type=mime_type,
+                    attributes=[
+                        DocumentAttributeFilename(file_name)
+                    ]
+                ),
+                message=''
+            ))
+            
+            await progress_bar.stop("Upload Complete")
         else:
             await event.respond(
                 f"Error: Download incomplete (Size missmatch) file_size is: {file_size} and downloaded size is: {downloaded_size}")
@@ -350,41 +405,6 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
             del progress_messages[task_id]
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
-
-
-async def upload_file(event, file_path, file_name, file_size, mime_type, progress_bar, task_id):
-    try:
-        start_time = time.time()
-        uploaded_size = 0
-        upload_speed = 0
-
-        with open(file_path, "rb") as f:
-            mime = magic.Magic(mime=True)
-            mime_type = mime.from_file(file_path)
-
-            file = await bot.upload_file(f, progress_callback=lambda current, total: asyncio.create_task(
-                progress_bar.update_progress(current / total)))
-
-        uploaded = await bot(SendMediaRequest(
-             peer=await bot.get_input_entity(event.chat_id),
-            media=InputMediaUploadedDocument(
-                file=file,
-                mime_type=mime_type,
-                attributes=[
-                    DocumentAttributeFilename(file_name)
-                ]
-            ),
-            message=''
-        ))
-
-        await progress_bar.stop("Upload Complete")
-    except Exception as e:
-        logging.error(f"Upload Error: {e}")
-        await event.respond(f"Upload Error: {e}")
-    finally:
-        if task_id in progress_messages:
-            del progress_messages[task_id]
-
 
 async def main():
     try:
