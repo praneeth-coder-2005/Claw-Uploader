@@ -3,7 +3,7 @@ import logging
 import os
 import time
 import uuid
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 import re
 import math
 
@@ -37,6 +37,7 @@ def get_file_name_extension(url):
     try:
         parsed_url = urlparse(url)
         file_name = os.path.basename(parsed_url.path)
+        file_name = unquote(file_name)  # URL decode filename
         name_parts = file_name.split('.')
         if len(name_parts) > 1:
             file_extension = '.' + name_parts[-1]
@@ -324,6 +325,33 @@ async def cancel_handler(event):
         logging.error(f"Error in cancel_handler: {e}")
         await event.respond(f"An error occurred. Please try again later")
 
+async def upload_file_chunked(client, file_path, chunk_size, progress_callback):
+    file_size = os.path.getsize(file_path)
+    file_id = os.urandom(8)
+    offset = 0
+    
+    with open(file_path, 'rb') as f:
+        while offset < file_size:
+            chunk = f.read(chunk_size)
+            part = offset // chunk_size
+            
+            if not chunk:
+                break
+            
+            await client(functions.upload.SaveBigFilePartRequest(
+                file_id=file_id,
+                file_part=part,
+                file_total_parts=math.ceil(file_size / chunk_size),
+                bytes=chunk
+            ))
+            
+            offset += len(chunk)
+            if progress_callback:
+                await progress_callback(offset, file_size)
+    
+    return types.InputFileBig(id=file_id, parts=math.ceil(file_size / chunk_size), name=os.path.basename(file_path))
+    
+
 async def download_and_upload(event, url, file_name, file_size, mime_type, task_id, file_extension):
     temp_file_path = f"temp_{task_id}"
     try:
@@ -382,10 +410,11 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                 if parts > MAX_FILE_PARTS:
                   upload_chunk_size = math.ceil(file_size / MAX_FILE_PARTS)
                   logging.warning(f"Reducing upload chunk size to {upload_chunk_size / (1024*1024):.2f} MB due to excessive parts {parts}")
-
-                file = await bot.upload_file(
-                      f,
-                      chunk_size=upload_chunk_size,
+                
+                file = await upload_file_chunked(
+                      bot,
+                      temp_file_path,
+                      upload_chunk_size,
                       progress_callback=lambda current, total: asyncio.create_task(
                           progress_bar.update_progress(current / total))
                     )
@@ -409,25 +438,4 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
             await event.respond(uploaded, file=file, caption=f"File Name: {file_name}{file_extension}")
         else:
              await event.respond(
-                f"Error: Download incomplete (Size missmatch) file_size is: {file_size} and downloaded size is: {downloaded_size}")
-
-    except Exception as e:
-        logging.error(f"An unexpected error occurred in downlaod_and_upload: {e}")
-        await event.respond(f"An error occurred: {e}")
-    finally:
-        if task_id in progress_messages:
-            del progress_messages[task_id]
-        if os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
-
-async def main():
-    try:
-        await bot.start(bot_token=BOT_TOKEN)
-        await bot.run_until_disconnected()
-    except Exception as e:
-        logging.error(f"An error occurred in main: {e}")
-    finally:
-        await bot.disconnect()
-
-if __name__ == '__main__':
-    asyncio.run(main())
+                f"Error: Download incomplete (Size miss
