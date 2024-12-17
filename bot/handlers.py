@@ -278,11 +278,11 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                     upload_chunk_size = math.ceil(file_size / MAX_FILE_PARTS)
                     logging.warning(f"Reducing upload chunk size to {upload_chunk_size / (1024*1024):.2f} MB due to excessive parts {parts}")
                 
-                upload_process = await bot.upload_file(
-                    f,
-                    chunk_size=upload_chunk_size,
-                    progress_callback=lambda current, total: asyncio.create_task(
-                        progress_bar.update_progress(current / total))
+                
+                file =  await bot.upload_file(
+                        f,
+                        progress_callback=lambda current, total: asyncio.create_task(
+                            progress_bar.update_progress(current / total))
                     )
                 uploaded_size = 0
                 elapsed_upload_time = time.time() - start_upload_time
@@ -292,7 +292,7 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                     await bot(SendMediaRequest(
                         peer=await bot.get_input_entity(current_event.chat_id),
                         media=InputMediaUploadedDocument(
-                            file=upload_process,
+                            file=file,
                             mime_type=mime_type,
                             attributes=[
                                 DocumentAttributeFilename(file_name)
