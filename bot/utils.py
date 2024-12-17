@@ -3,7 +3,9 @@ import os
 import re
 from urllib.parse import urlparse, unquote
 import logging
+import json
 
+SETTINGS_FILE = "bot/settings.json"  # Path to your settings file
 
 def get_file_name_extension(url):
     try:
@@ -21,7 +23,6 @@ def get_file_name_extension(url):
         logging.error(f"Error getting filename/extension: {e}, url: {url}")
         return "unknown", ""
 
-
 def extract_filename_from_content_disposition(content_disposition):
     if not content_disposition:
         return None
@@ -35,3 +36,34 @@ def extract_filename_from_content_disposition(content_disposition):
         return filename_star_match.group(1)
 
     return None
+
+def load_settings():
+    try:
+        with open(SETTINGS_FILE, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+def save_settings(settings):
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump(settings, f, indent=4)
+
+def get_user_settings(user_id):
+    settings = load_settings()
+    return settings.get(str(user_id), {
+        "thumbnail": None,
+        "prefix": None,
+        "rename_rules": []
+    })
+
+def set_user_setting(user_id, key, value):
+    settings = load_settings()
+    user_id_str = str(user_id)
+    if user_id_str not in settings:
+        settings[user_id_str] = {
+            "thumbnail": None,
+            "prefix": None,
+            "rename_rules": []
+        }
+    settings[user_id_str][key] = value
+    save_settings(settings)
