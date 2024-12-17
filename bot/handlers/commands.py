@@ -8,12 +8,12 @@ async def start_handler(event):
     try:
         user = await event.get_sender()
         message_text = (f"Hello {get_display_name(user)}! 👋\n"
-                        "I'm ready to upload files for you. I will upload up to 2GB.\n"
-                        "Just send me a URL, and I'll handle the rest.\n\n"
-                        "Available Commands:\n"
-                        "/start - Start the bot\n"
-                        "/help - Show this message\n"
-                        "/settings - Configure custom settings")
+                        f"I'm ready to upload files for you. I will upload up to 2GB.\n"
+                        f"Just send me a URL, and I'll handle the rest.\n\n"
+                        f"Available Commands:\n"
+                        f"/start - Start the bot\n"
+                        f"/help - Show this message\n"
+                        f"/settings - Configure custom settings")
         await event.respond(message_text)
     except Exception as e:
         logging.error(f"Error in /start handler: {e}")
@@ -37,7 +37,6 @@ async def settings_handler(event):
         f"✏️ **Rename Rules:** {', '.join(user_settings['rename_rules']) if user_settings['rename_rules'] else 'None'}\n\n"
         "What do you want to change?"
     )
-    
     buttons = [
         [Button.inline("🖼️ Set Thumbnail", data="set_thumbnail")],
         [Button.inline("✍️ Set Prefix", data="set_prefix")],
