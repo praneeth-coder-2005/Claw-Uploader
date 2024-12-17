@@ -184,15 +184,14 @@ async def upload_file_chunked(client, file_path, chunk_size, progress_callback, 
     file_size = os.path.getsize(file_path)
     file_id = os.urandom(8)
     offset = 0
-    
+    part = 0
     with open(file_path, 'rb') as f:
-         part = 0
-         while offset < file_size:
-            chunk = f.read(chunk_size)
+        while offset < file_size:
             
+            chunk = f.read(chunk_size)
             if not chunk:
                 break
-            
+
             await client(functions.upload.SaveBigFilePartRequest(
                 file_id=file_id,
                 file_part=part,
@@ -201,11 +200,11 @@ async def upload_file_chunked(client, file_path, chunk_size, progress_callback, 
             ))
             
             offset += len(chunk)
-            part+=1
+            part += 1 # Correct part calculation
             if progress_callback:
-                await progress_callback(offset, file_size)
-    
-         return types.InputFileBig(id=file_id, parts=int(total_parts), name=os.path.basename(file_path))
+                 await progress_callback(offset, file_size)
+
+        return types.InputFileBig(id=file_id, parts=int(total_parts), name=os.path.basename(file_path))
     
 
 async def download_and_upload(event, url, file_name, file_size, mime_type, task_id, file_extension):
