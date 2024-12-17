@@ -13,7 +13,7 @@ from telethon.tl.functions.messages import SendMediaRequest
 from telethon.tl.types import InputMediaUploadedDocument, DocumentAttributeFilename
 from telethon.utils import get_display_name
 
-from config import API_ID, API_HASH, BOT_TOKEN  # Import configuration from config.py
+from config import API_ID, API_HASH, BOT_TOKEN
 
 logging.basicConfig(format='[%(levelname) 5s/%(asctime)s] %(name)s: %(message)s',
                     level=logging.INFO)
@@ -25,6 +25,7 @@ PROGRESS_UPDATE_INTERVAL = 10  # Update every 10% complete
 MAX_RETRIES = 3  # Max retries for download failures
 RETRY_DELAY = 5  # Delay between retries in seconds
 FLOOD_WAIT_THRESHOLD = 60
+
 
 # Globals
 progress_messages = {}
@@ -97,7 +98,9 @@ class ProgressBar:
                                                                 buttons=[[Button.inline("Cancel", data=f"cancel_{self.task_id}")]])
                             except Exception as e:
                                 if "FloodWait" in str(e):
-                                    logging.warning(f"Flood Wait detected in edit message : {e}")
+                                     logging.warning(f"Flood Wait detected in edit message, waiting to retry: {e}")
+                                     await asyncio.sleep(int(str(e).split(" ")[-1]))
+                                     await self.update_progress(progress, upload_speed, download_speed)
                                 else:
                                     logging.error(f"Failed to edit progress message: {e}, message id: {self.message}")
                         else:
@@ -106,7 +109,9 @@ class ProgressBar:
                                                                     buttons=[[Button.inline("Cancel", data=f"cancel_{self.task_id}")]])
                             except Exception as e:
                                 if "FloodWait" in str(e):
-                                    logging.warning(f"Flood Wait detected in send message : {e}")
+                                    logging.warning(f"Flood Wait detected in send message, waiting to retry: {e}")
+                                    await asyncio.sleep(int(str(e).split(" ")[-1]))
+                                    await self.update_progress(progress, upload_speed, download_speed)
                                 else:
                                     logging.error(f"Failed to send progress message: {e}")
 
@@ -121,16 +126,20 @@ class ProgressBar:
             try:
                 await self.client.edit_message(self.event.chat_id, self.message, text)
             except Exception as e:
-                if "FloodWait" in str(e):
-                    logging.warning(f"Flood Wait detected in stop message : {e}")
-                else:
-                    logging.error(f"Failed to edit final message: {e}, message id: {self.message}")
+                 if "FloodWait" in str(e):
+                    logging.warning(f"Flood Wait detected in stop message, waiting to retry: {e}")
+                    await asyncio.sleep(int(str(e).split(" ")[-1]))
+                    await self.stop(text)
+                 else:
+                     logging.error(f"Failed to edit final message: {e}, message id: {self.message}")
         else:
             try:
                 await self.client.send_message(self.event.chat_id, text)
             except Exception as e:
                 if "FloodWait" in str(e):
-                    logging.warning(f"Flood Wait detected in stop message : {e}")
+                    logging.warning(f"Flood Wait detected in stop message, waiting to retry: {e}")
+                    await asyncio.sleep(int(str(e).split(" ")[-1]))
+                    await self.stop(text)
                 else:
                     logging.error(f"Failed to send final message: {e}")
 
@@ -355,7 +364,7 @@ async def upload_file(event, file_path, file_name, file_size, mime_type, progres
         start_time = time.time()
         uploaded_size = 0
         upload_speed = 0
-        
+
         with open(file_path, "rb") as f:
             mime = magic.Magic(mime=True)
             mime_type = mime.from_file(file_path)
@@ -364,7 +373,7 @@ async def upload_file(event, file_path, file_name, file_size, mime_type, progres
                 progress_bar.update_progress(current / total)))
 
         uploaded = await bot(SendMediaRequest(
-            peer = await bot.get_input_entity(event.chat_id),
+             peer=await bot.get_input_entity(event.chat_id),
             media=InputMediaUploadedDocument(
                 file=file,
                 mime_type=mime_type,
@@ -375,7 +384,6 @@ async def upload_file(event, file_path, file_name, file_size, mime_type, progres
         ))
 
         await progress_bar.stop("Upload Complete")
-
     except Exception as e:
         logging.error(f"Upload Error: {e}")
         await event.respond(f"Upload Error: {e}")
