@@ -5,7 +5,11 @@ from .callbacks import set_thumbnail_handler, set_prefix_handler, add_rename_rul
 from .messages import url_processing, rename_process
 from .settings import handle_settings_input
 from bot.config import API_ID, API_HASH
+# From (in bot/handlers/callbacks.py):
+# from bot.handlers import upload_thumb
 
+# To (in bot/handlers/callbacks.py):
+from bot.utils import upload_thumb
 bot = TelegramClient('bot', API_ID, API_HASH)
 
 # Register all handlers
