@@ -196,7 +196,7 @@ async def upload_file_chunked(client, file_path, chunk_size, progress_callback, 
             await client(functions.upload.SaveBigFilePartRequest(
                 file_id=file_id,
                 file_part=part,
-                file_total_parts=int(total_parts), # Convert to integer here
+                file_total_parts=int(total_parts),
                 bytes=chunk
             ))
             
@@ -205,7 +205,7 @@ async def upload_file_chunked(client, file_path, chunk_size, progress_callback, 
             if progress_callback:
                 await progress_callback(offset, file_size)
     
-        return types.InputFileBig(id=file_id, parts=int(total_parts), name=os.path.basename(file_path)) # Convert to integer here
+         return types.InputFileBig(id=file_id, parts=int(total_parts), name=os.path.basename(file_path))
     
 
 async def download_and_upload(event, url, file_name, file_size, mime_type, task_id, file_extension):
