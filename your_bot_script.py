@@ -98,9 +98,9 @@ class ProgressBar:
                                                                 buttons=[[Button.inline("Cancel", data=f"cancel_{self.task_id}")]])
                             except Exception as e:
                                 if "FloodWait" in str(e):
-                                     logging.warning(f"Flood Wait detected in edit message, waiting to retry: {e}")
-                                     await asyncio.sleep(int(str(e).split(" ")[-1]))
-                                     await self.update_progress(progress, upload_speed, download_speed)
+                                    logging.warning(f"Flood Wait detected in edit message, waiting to retry: {e}")
+                                    await asyncio.sleep(int(str(e).split(" ")[-1]))
+                                    await self.update_progress(progress, upload_speed, download_speed)
                                 else:
                                     logging.error(f"Failed to edit progress message: {e}, message id: {self.message}")
                         else:
@@ -126,12 +126,12 @@ class ProgressBar:
             try:
                 await self.client.edit_message(self.event.chat_id, self.message, text)
             except Exception as e:
-                 if "FloodWait" in str(e):
+                if "FloodWait" in str(e):
                     logging.warning(f"Flood Wait detected in stop message, waiting to retry: {e}")
                     await asyncio.sleep(int(str(e).split(" ")[-1]))
                     await self.stop(text)
-                 else:
-                     logging.error(f"Failed to edit final message: {e}, message id: {self.message}")
+                else:
+                    logging.error(f"Failed to edit final message: {e}, message id: {self.message}")
         else:
             try:
                 await self.client.send_message(self.event.chat_id, text)
