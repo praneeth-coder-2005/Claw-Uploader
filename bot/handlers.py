@@ -180,7 +180,7 @@ async def cancel_handler(event):
         logging.error(f"Error in cancel_handler: {e}")
         await event.respond(f"An error occurred. Please try again later")
 
-async def upload_file_chunked(client, file_path, chunk_size, progress_callback):
+async def upload_file_chunked(client, file_path, chunk_size, progress_callback, total_parts):
     file_size = os.path.getsize(file_path)
     file_id = os.urandom(8)
     offset = 0
@@ -196,7 +196,7 @@ async def upload_file_chunked(client, file_path, chunk_size, progress_callback):
             await client(functions.upload.SaveBigFilePartRequest(
                 file_id=file_id,
                 file_part=part,
-                file_total_parts=math.ceil(file_size / chunk_size),
+                file_total_parts=total_parts,
                 bytes=chunk
             ))
             
@@ -204,7 +204,7 @@ async def upload_file_chunked(client, file_path, chunk_size, progress_callback):
             if progress_callback:
                 await progress_callback(offset, file_size)
     
-        return types.InputFileBig(id=file_id, parts=math.ceil(file_size / chunk_size), name=os.path.basename(file_path))
+        return types.InputFileBig(id=file_id, parts=total_parts, name=os.path.basename(file_path))
     
 
 async def download_and_upload(event, url, file_name, file_size, mime_type, task_id, file_extension):
@@ -266,12 +266,15 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                   upload_chunk_size = math.ceil(file_size / MAX_FILE_PARTS)
                   logging.warning(f"Reducing upload chunk size to {upload_chunk_size / (1024*1024):.2f} MB due to excessive parts {parts}")
                 
+                total_parts = math.ceil(file_size/upload_chunk_size)
+
                 file = await upload_file_chunked(
                       bot,
                       temp_file_path,
                       upload_chunk_size,
                       progress_callback=lambda current, total: asyncio.create_task(
-                          progress_bar.update_progress(current / total))
+                          progress_bar.update_progress(current / total)),
+                      total_parts=total_parts
                     )
 
             uploaded_size = 0
