@@ -69,9 +69,11 @@ async def done_settings_handler(event):
 async def default_file_handler(event):
     try:
         task_id = event.data.decode().split('_')[1]
+        user_id = event.sender_id  # Get user_id before checking task_data
+
         task_data = progress_manager.get_task(task_id)
-        user_id = event.sender_id
-        if task_data:
+
+        if task_data:  # Correctly check if task_data exists
             user_settings = get_user_settings(user_id)
             user_prefix = user_settings.get("prefix", DEFAULT_PREFIX)
 
@@ -84,13 +86,13 @@ async def default_file_handler(event):
             # Apply rename rules
             for rule in user_settings["rename_rules"]:
                 file_name = file_name.replace(rule, "")
-            
+
             message = await event.respond(message="Processing file upload..")
             progress_manager.set_message_id(task_id, message.id)
 
             await download_and_upload(event, url, f"{user_prefix}{file_name}{file_extension}", file_size, mime_type, task_id, file_extension, event, user_id)
         else:
-             await event.answer("No Active Download")
+            await event.answer("No Active Download")
     except Exception as e:
         logging.error(f"Error in default_file_handler: {e}")
         await event.respond(f"An error occurred. Please try again later")
