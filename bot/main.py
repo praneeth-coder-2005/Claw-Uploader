@@ -9,11 +9,10 @@ from telethon.errors import FloodWaitError
 
 from bot.config import API_ID, API_HASH, BOT_TOKEN, DEFAULT_PREFIX, DEFAULT_THUMBNAIL, MAX_FILE_SIZE, MAX_RETRIES, RETRY_DELAY, CHUNK_SIZE, MAX_FILE_PARTS
 from bot.utils import get_user_settings, set_user_setting, upload_thumb, get_file_name_extension, extract_filename_from_content_disposition
+from bot.services.progress_manager import ProgressManager
 from bot.progress import ProgressBar
-# bot/main.py
-# ... other imports ...
-from bot.services.progress_manager import ProgressManager  # Correct import
-# ... rest of your code ...
+from bot.handlers import url_processing, default_file_handler, rename_handler, cancel_handler, rename_process
+
 # Initialize ProgressManager and bot
 progress_manager = ProgressManager()
 bot = TelegramClient('bot', API_ID, API_HASH)
@@ -42,7 +41,8 @@ async def settings_handler(event):
         f"🖼️ **Thumbnail:** {user_settings['thumbnail'] if user_settings['thumbnail'] else 'Default'}\n"
         f"✍️ **Prefix:** {user_settings['prefix'] if user_settings['prefix'] else 'Default'}\n"
         f"✏️ **Rename Rules:** {', '.join(user_settings['rename_rules']) if user_settings['rename_rules'] else 'None'}\n\n"
-        "What do you want to change?")
+        "What do you want to change?"
+    )
     buttons = [
         [Button.inline("🖼️ Set Thumbnail", data="set_thumbnail")],
         [Button.inline("✍️ Set Prefix", data="set_prefix")],
@@ -141,6 +141,11 @@ def register_handlers(bot):
     bot.add_event_handler(remove_rename_rule_handler, events.CallbackQuery(data=b"remove_rename_rule"))
     bot.add_event_handler(remove_rule_callback_handler, events.CallbackQuery(data=lambda data: data.startswith(b"remove_rule_")))
     bot.add_event_handler(done_settings_handler, events.CallbackQuery(data=b"done_settings"))
+    bot.add_event_handler(url_processing, events.NewMessage)
+    bot.add_event_handler(rename_process, events.NewMessage)
+    bot.add_event_handler(default_file_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('default_')))
+    bot.add_event_handler(rename_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('rename_')))
+    bot.add_event_handler(cancel_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('cancel_')))
 
 async def main():
     register_handlers(bot)
