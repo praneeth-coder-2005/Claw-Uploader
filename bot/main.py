@@ -148,7 +148,7 @@ def register_handlers(bot):
     bot.add_event_handler(cancel_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('cancel_')))
 
 async def main():
-    register_handlers(bot)
+    register_handlers(bot) # Register handlers
     await bot.start(bot_token=BOT_TOKEN)
     await bot.run_until_disconnected()
 
