@@ -7,7 +7,10 @@ import time
 import math
 import aiohttp
 import magic
-
+# bot/upload_downloader.py
+# ... other imports ...
+from bot.services.progress_manager import ProgressManager  # Correct import
+# ... rest of the code ...
 from telethon import types
 from telethon.errors import FloodWaitError
 from telethon.tl.functions.messages import SendMediaRequest
