@@ -26,7 +26,6 @@ MAX_RETRIES = 3  # Max retries for download failures
 RETRY_DELAY = 5  # Delay between retries in seconds
 FLOOD_WAIT_THRESHOLD = 60
 
-
 # Globals
 progress_messages = {}
 
@@ -153,7 +152,7 @@ async def start_handler(event):
     try:
         user = await event.get_sender()
         await event.respond(
-            f"Hello {get_display_name(user)}! 👋\n I'm ready to upload files for you. I will upload upto 2gb and follow the given commands.")
+            f"Hello {get_display_name(user)}! 👋\n I'm ready to upload files for you. I will upload upto 2gb. Just send me a URL and I'll handle it.")
         await event.respond('Use /help to see available options.')
     except Exception as e:
         logging.error(f"Error in /start handler: {e}")
@@ -163,93 +162,88 @@ async def start_handler(event):
 @bot.on(events.NewMessage(pattern='/help'))
 async def help_handler(event):
     try:
-        await event.respond('Available Commands:\n/start - Start the bot\n/help - Show this message',
-                            buttons=[[Button.inline("Upload URL", data="upload_url")]])
+        await event.respond('Available Commands:\n/start - Start the bot\n/help - Show this message')
     except Exception as e:
         logging.error(f"Error in /help handler: {e}")
         await event.respond(f"An error occurred. Please try again later")
 
-
-@bot.on(events.CallbackQuery(data="upload_url"))
-async def url_handler(event):
-    try:
-        await event.answer(message='Please give url to Upload')
-        progress_messages[event.sender_id] = {"status": "url_requested"}
-    except Exception as e:
-        logging.error(f"Error in url_handler: {e}")
-        await event.respond(f"An error occurred. Please try again later")
-
-
 @bot.on(events.NewMessage)
 async def url_processing(event):
     try:
-        if event.sender_id in progress_messages and progress_messages[event.sender_id]["status"] == "url_requested":
-            url = event.text
-            progress_messages[event.sender_id] = {"status": "processing_url", "url": url}
-            await event.delete()
-            file_name, file_extension = get_file_name_extension(url)
+        url = event.text.strip()
+        if not url.startswith("http://") and not url.startswith("https://"):
+            return  # Ignore non-URL messages
 
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.head(url, allow_redirects=True, timeout=10) as response:
-                        response.raise_for_status()
-                        file_size = int(response.headers.get('Content-Length', 0))
+        await event.delete()
+        file_name, file_extension = get_file_name_extension(url)
 
-                        if file_size > MAX_FILE_SIZE:
-                            await event.respond('File size exceeds the limit of 2GB.')
-                            del progress_messages[event.sender_id]
-                            return
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.head(url, allow_redirects=True, timeout=10) as response:
+                    response.raise_for_status()
+                    file_size = int(response.headers.get('Content-Length', 0))
 
-                        mime_type = response.headers.get('Content-Type', "application/octet-stream")
+                    if file_size > MAX_FILE_SIZE:
+                        await event.respond('File size exceeds the limit of 2GB.')
+                        return
 
-                        buttons = [[Button.inline("Default", data=f"default_{event.sender_id}"),
-                                    Button.inline("Rename", data=f"rename_{event.sender_id}")]]
-                        await event.respond(
-                            f"Original File Name: {file_name}{file_extension}\nFile Size: {file_size / (1024 * 1024):.2f} MB",
-                            buttons=buttons)
+                    mime_type = response.headers.get('Content-Type', "application/octet-stream")
 
-                        progress_messages[event.sender_id]["file_name"] = file_name
-                        progress_messages[event.sender_id]["file_extension"] = file_extension
-                        progress_messages[event.sender_id]["file_size"] = file_size
-                        progress_messages[event.sender_id]["mime_type"] = mime_type
-            except aiohttp.ClientError as e:
-                logging.error(f"AIOHTTP Error fetching URL {url}: {e}")
-                await event.respond(f"Error fetching URL: {e}")
-                del progress_messages[event.sender_id]
-            except Exception as e:
-                logging.error(f"An unexpected error occurred while processing URL {url}: {e}")
-                await event.respond(f"An error occurred: {e}")
-                del progress_messages[event.sender_id]
+                    task_id = str(uuid.uuid4())
+                    progress_messages[task_id] = {
+                        "file_name": file_name,
+                        "file_extension": file_extension,
+                        "file_size": file_size,
+                        "url": url,
+                        "mime_type": mime_type,
+                        "cancel_flag": False
+                    }
+                    buttons = [[Button.inline("Default", data=f"default_{task_id}"),
+                                Button.inline("Rename", data=f"rename_{task_id}")]]
+                    await event.respond(
+                        f"Original File Name: {file_name}{file_extension}\nFile Size: {file_size / (1024 * 1024):.2f} MB",
+                        buttons=buttons)
+
+
+        except aiohttp.ClientError as e:
+            logging.error(f"AIOHTTP Error fetching URL {url}: {e}")
+            await event.respond(f"Error fetching URL: {e}")
+        except Exception as e:
+            logging.error(f"An unexpected error occurred while processing URL {url}: {e}")
+            await event.respond(f"An error occurred: {e}")
     except Exception as e:
-        logging.error(f"Error in url_processing handler : {e}")
+        logging.error(f"Error in url_processing handler: {e}")
         await event.respond(f"An error occurred. Please try again later")
-
 
 @bot.on(events.CallbackQuery(data=lambda data: data.decode().startswith('default_')))
 async def default_file_handler(event):
     try:
-        sender_id = int(event.data.decode().split('_')[1])
-        if sender_id in progress_messages and progress_messages[sender_id]["status"] == "processing_url":
-            file_name = progress_messages[sender_id]["file_name"]
-            file_extension = progress_messages[sender_id]["file_extension"]
-            file_size = progress_messages[sender_id]["file_size"]
-            url = progress_messages[sender_id]["url"]
-            mime_type = progress_messages[sender_id]["mime_type"]
+        task_id = event.data.decode().split('_')[1]
+        if task_id in progress_messages:
+           
+            file_name = progress_messages[task_id]["file_name"]
+            file_extension = progress_messages[task_id]["file_extension"]
+            file_size = progress_messages[task_id]["file_size"]
+            url = progress_messages[task_id]["url"]
+            mime_type = progress_messages[task_id]["mime_type"]
             await event.answer(message="Processing file upload..")
-            await download_and_upload(event, url, f"{file_name}{file_extension}", file_size, mime_type)
-            del progress_messages[sender_id]
+            await download_and_upload(event, url, f"{file_name}{file_extension}", file_size, mime_type, task_id)
+        else:
+             await event.answer("No Active Download")
     except Exception as e:
         logging.error(f"Error in default_file_handler: {e}")
         await event.respond(f"An error occurred. Please try again later")
 
-
 @bot.on(events.CallbackQuery(data=lambda data: data.decode().startswith('rename_')))
 async def rename_handler(event):
     try:
-        sender_id = int(event.data.decode().split('_')[1])
-        if sender_id in progress_messages and progress_messages[sender_id]["status"] == "processing_url":
-            progress_messages[sender_id]["status"] = "rename_requested"
+         task_id = event.data.decode().split('_')[1]
+         if task_id in progress_messages:
+            progress_messages[task_id]["status"] = "rename_requested"
             await event.answer(message='Send your desired file name:')
+         else:
+            await event.answer("No Active Download")
+
     except Exception as e:
         logging.error(f"Error in rename_handler: {e}")
         await event.respond(f"An error occurred. Please try again later")
@@ -258,20 +252,21 @@ async def rename_handler(event):
 @bot.on(events.NewMessage)
 async def rename_process(event):
     try:
-        if event.sender_id in progress_messages and progress_messages[event.sender_id]["status"] == "rename_requested":
+       for task_id, data in progress_messages.items():
+          if "status" in data and data["status"] == "rename_requested" and event.sender_id == event.sender_id:
+
             new_file_name = event.text
-            file_extension = progress_messages[event.sender_id]["file_extension"]
-            file_size = progress_messages[event.sender_id]["file_size"]
-            url = progress_messages[event.sender_id]["url"]
-            mime_type = progress_messages[event.sender_id]["mime_type"]
+            file_extension = data["file_extension"]
+            file_size = data["file_size"]
+            url = data["url"]
+            mime_type = data["mime_type"]
             await event.delete()
             await event.respond(f"Your new File name is: {new_file_name}{file_extension}")
-            await download_and_upload(event, url, f"{new_file_name}{file_extension}", file_size, mime_type)
-            del progress_messages[event.sender_id]
+            await download_and_upload(event, url, f"{new_file_name}{file_extension}", file_size, mime_type, task_id)
+            return
     except Exception as e:
         logging.error(f"Error in rename_process: {e}")
         await event.respond(f"An error occurred. Please try again later")
-
 
 @bot.on(events.CallbackQuery(data=lambda data: data.decode().startswith('cancel_')))
 async def cancel_handler(event):
@@ -291,10 +286,8 @@ async def cancel_handler(event):
         logging.error(f"Error in cancel_handler: {e}")
         await event.respond(f"An error occurred. Please try again later")
 
+async def download_and_upload(event, url, file_name, file_size, mime_type, task_id):
 
-async def download_and_upload(event, url, file_name, file_size, mime_type):
-    task_id = str(uuid.uuid4())
-    progress_messages[task_id] = {"cancel_flag": False}
     temp_file_path = f"temp_{task_id}"
     try:
         downloaded_size = 0
@@ -381,7 +374,7 @@ async def upload_file(event, file_path, file_name, file_size, mime_type, progres
                     DocumentAttributeFilename(file_name)
                 ]
             ),
-            message='' # Passing empty string here to avoid error.
+            message=''
         ))
 
         await progress_bar.stop("Upload Complete")
@@ -395,9 +388,8 @@ async def upload_file(event, file_path, file_name, file_size, mime_type, progres
 
 async def main():
     try:
-        # loop = asyncio.get_event_loop() # Removed this line
         await bot.start(bot_token=BOT_TOKEN)
-        await bot.run_until_disconnected() # Removed loop=loop
+        await bot.run_until_disconnected()
     except Exception as e:
         logging.error(f"An error occurred in main: {e}")
     finally:
