@@ -16,7 +16,7 @@ from telethon import functions, types
 
 from bot.utils import get_file_name_extension, extract_filename_from_content_disposition
 from bot.progress import ProgressBar
-from bot.config import BOT_TOKEN # remove api id and hash import
+from bot.config import BOT_TOKEN, API_ID, API_HASH
 
 
 logging.basicConfig(format='[%(levelname) 5s/%(asctime)s] %(name)s: %(message)s',
@@ -82,7 +82,7 @@ async def url_processing(event):
                         file_name, file_extension = get_file_name_extension(url)
                     else:
                         file_name, file_extension = os.path.splitext(original_file_name)
-
+                        
                     task_id = str(uuid.uuid4())
                     progress_messages[task_id] = {
                         "file_name": file_name,
@@ -90,7 +90,7 @@ async def url_processing(event):
                         "file_size": file_size,
                         "url": url,
                         "mime_type": mime_type,
-                        "cancel_flag": False
+                         "cancel_flag": False
                     }
                     buttons = [[Button.inline("Default", data=f"default_{task_id}"),
                                 Button.inline("Rename", data=f"rename_{task_id}")]]
@@ -114,7 +114,7 @@ async def default_file_handler(event):
     try:
         task_id = event.data.decode().split('_')[1]
         if task_id in progress_messages:
-
+           
             file_name = progress_messages[task_id]["file_name"]
             file_extension = progress_messages[task_id]["file_extension"]
             file_size = progress_messages[task_id]["file_size"]
@@ -123,7 +123,7 @@ async def default_file_handler(event):
             await event.answer(message="Processing file upload..")
             await download_and_upload(event, url, f"{file_name}{file_extension}", file_size, mime_type, task_id, file_extension)
         else:
-            await event.answer("No Active Download")
+             await event.answer("No Active Download")
     except Exception as e:
         logging.error(f"Error in default_file_handler: {e}")
         await event.respond(f"An error occurred. Please try again later")
@@ -131,11 +131,11 @@ async def default_file_handler(event):
 @bot.on(events.CallbackQuery(data=lambda data: data.decode().startswith('rename_')))
 async def rename_handler(event):
     try:
-        task_id = event.data.decode().split('_')[1]
-        if task_id in progress_messages:
+         task_id = event.data.decode().split('_')[1]
+         if task_id in progress_messages:
             progress_messages[task_id]["status"] = "rename_requested"
             await event.answer(message='Send your desired file name:')
-        else:
+         else:
             await event.answer("No Active Download")
 
     except Exception as e:
@@ -146,18 +146,18 @@ async def rename_handler(event):
 @bot.on(events.NewMessage)
 async def rename_process(event):
     try:
-        for task_id, data in progress_messages.items():
-            if "status" in data and data["status"] == "rename_requested" and event.sender_id == event.sender_id:
+       for task_id, data in progress_messages.items():
+          if "status" in data and data["status"] == "rename_requested" and event.sender_id == event.sender_id:
 
-                new_file_name = event.text
-                file_extension = data["file_extension"]
-                file_size = data["file_size"]
-                url = data["url"]
-                mime_type = data["mime_type"]
-                await event.delete()
-                await event.respond(f"Your new File name is: {new_file_name}{file_extension}")
-                await download_and_upload(event, url, f"{new_file_name}{file_extension}", file_size, mime_type, task_id, file_extension)
-                return
+            new_file_name = event.text
+            file_extension = data["file_extension"]
+            file_size = data["file_size"]
+            url = data["url"]
+            mime_type = data["mime_type"]
+            await event.delete()
+            await event.respond(f"Your new File name is: {new_file_name}{file_extension}")
+            await download_and_upload(event, url, f"{new_file_name}{file_extension}", file_size, mime_type, task_id, file_extension)
+            return
     except Exception as e:
         logging.error(f"Error in rename_process: {e}")
         await event.respond(f"An error occurred. Please try again later")
@@ -184,28 +184,28 @@ async def upload_file_chunked(client, file_path, chunk_size, progress_callback):
     file_size = os.path.getsize(file_path)
     file_id = os.urandom(8)
     offset = 0
-
+    
     with open(file_path, 'rb') as f:
         while offset < file_size:
             chunk = f.read(chunk_size)
             part = offset // chunk_size
-    
+            
             if not chunk:
                 break
-    
+            
             await client(functions.upload.SaveBigFilePartRequest(
                 file_id=file_id,
                 file_part=part,
                 file_total_parts=math.ceil(file_size / chunk_size),
                 bytes=chunk
             ))
-    
+            
             offset += len(chunk)
             if progress_callback:
                 await progress_callback(offset, file_size)
-
-    return types.InputFileBig(id=file_id, parts=math.ceil(file_size / chunk_size), name=os.path.basename(file_path))
-
+    
+        return types.InputFileBig(id=file_id, parts=math.ceil(file_size / chunk_size), name=os.path.basename(file_path))
+    
 
 async def download_and_upload(event, url, file_name, file_size, mime_type, task_id, file_extension):
     temp_file_path = f"temp_{task_id}"
@@ -221,9 +221,9 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
         for attempt in range(MAX_RETRIES):
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(url, timeout=None) as response:
+                     async with session.get(url, timeout=None) as response:
                         response.raise_for_status()
-
+                        
                         with open(temp_file_path, "wb") as temp_file:
                             while True:
                                 if progress_messages[task_id]["cancel_flag"]:
@@ -257,21 +257,21 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
             with open(temp_file_path, "rb") as f:
                 mime = magic.Magic(mime=True)
                 mime_type = mime.from_file(temp_file_path)
-            
+                
                 # Calculate number of parts
                 parts = math.ceil(file_size / CHUNK_SIZE)
 
                 upload_chunk_size = CHUNK_SIZE
                 if parts > MAX_FILE_PARTS:
-                    upload_chunk_size = math.ceil(file_size / MAX_FILE_PARTS)
-                    logging.warning(f"Reducing upload chunk size to {upload_chunk_size / (1024*1024):.2f} MB due to excessive parts {parts}")
+                  upload_chunk_size = math.ceil(file_size / MAX_FILE_PARTS)
+                  logging.warning(f"Reducing upload chunk size to {upload_chunk_size / (1024*1024):.2f} MB due to excessive parts {parts}")
                 
                 file = await upload_file_chunked(
-                    bot,
-                    temp_file_path,
-                    upload_chunk_size,
-                    progress_callback=lambda current, total: asyncio.create_task(
-                        progress_bar.update_progress(current / total))
+                      bot,
+                      temp_file_path,
+                      upload_chunk_size,
+                      progress_callback=lambda current, total: asyncio.create_task(
+                          progress_bar.update_progress(current / total))
                     )
 
             uploaded_size = 0
@@ -292,7 +292,7 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
             await progress_bar.stop("Upload Complete")
             await event.respond(uploaded, file=file, caption=f"File Name: {file_name}{file_extension}")
         else:
-            await event.respond(
+             await event.respond(
                 f"Error: Download incomplete (Size mismatch) file_size is: {file_size} and downloaded size is: {downloaded_size}")
 
     except Exception as e:
