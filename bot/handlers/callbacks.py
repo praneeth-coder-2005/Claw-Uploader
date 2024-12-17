@@ -1,109 +1,30 @@
-# handlers/callbacks.py
-import logging
-from telethon import events, Button
-from bot.services.progress import ProgressManager
-from bot.utils import get_user_settings, set_user_setting
-from bot.config import DEFAULT_PREFIX
+# handlers/__init__.py
+from telethon import TelegramClient, events
+from .commands import start_handler, help_handler, settings_handler
+from .callbacks import set_thumbnail_handler, set_prefix_handler, add_rename_rule_handler, remove_rename_rule_handler, remove_rule_callback_handler, done_settings_handler, default_file_handler, rename_handler, cancel_handler, download_and_upload, upload_thumb
+from .messages import url_processing, rename_process
+from .settings import handle_settings_input
+from bot.config import API_ID, API_HASH
 
-progress_manager = ProgressManager()
+bot = TelegramClient('bot', API_ID, API_HASH)
 
-async def set_thumbnail_handler(event):
-    user_id = event.sender_id
-    progress_manager.update_task_status(user_id, "set_thumbnail")
-    await event.respond("Please send me the thumbnail URL:")
+# Register all handlers
+def register_handlers(bot):
+    bot.add_event_handler(start_handler, events.NewMessage(pattern='/start'))
+    bot.add_event_handler(help_handler, events.NewMessage(pattern='/help'))
+    bot.add_event_handler(settings_handler, events.NewMessage(pattern='/settings'))
+    bot.add_event_handler(handle_settings_input, events.NewMessage)
+    bot.add_event_handler(set_thumbnail_handler, events.CallbackQuery(data=b"set_thumbnail"))
+    bot.add_event_handler(set_prefix_handler, events.CallbackQuery(data=b"set_prefix"))
+    bot.add_event_handler(add_rename_rule_handler, events.CallbackQuery(data=b"add_rename_rule"))
+    bot.add_event_handler(remove_rename_rule_handler, events.CallbackQuery(data=b"remove_rename_rule"))
+    bot.add_event_handler(remove_rule_callback_handler, events.CallbackQuery(data=lambda data: data.startswith(b"remove_rule_")))
+    bot.add_event_handler(done_settings_handler, events.CallbackQuery(data=b"done_settings"))
+    bot.add_event_handler(default_file_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('default_')))
+    bot.add_event_handler(rename_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('rename_')))
+    bot.add_event_handler(cancel_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('cancel_')))
+    bot.add_event_handler(url_processing, events.NewMessage)
+    bot.add_event_handler(rename_process, events.NewMessage)
 
-async def set_prefix_handler(event):
-    user_id = event.sender_id
-    progress_manager.update_task_status(user_id, "set_prefix")
-    await event.respond("Please send me the new prefix:")
-
-async def add_rename_rule_handler(event):
-    user_id = event.sender_id
-    progress_manager.update_task_status(user_id, "add_rename_rule")
-    await event.respond("Please send me the text to remove from filenames:")
-
-async def remove_rename_rule_handler(event):
-    user_id = event.sender_id
-    user_settings = get_user_settings(user_id)
-    if user_settings["rename_rules"]:
-        progress_manager.update_task_status(user_id, "remove_rename_rule")
-        buttons = [
-            [Button.inline(rule, data=f"remove_rule_{i}")]
-            for i, rule in enumerate(user_settings["rename_rules"])
-        ]
-        await event.respond("Which rule do you want to remove?", buttons=buttons)
-    else:
-        await event.answer("You don't have any rename rules set.")
-
-async def remove_rule_callback_handler(event):
-    user_id = event.sender_id
-    rule_index = int(event.data.decode().split("_")[-1])
-    user_settings = get_user_settings(user_id)
-    if 0 <= rule_index < len(user_settings["rename_rules"]):
-        removed_rule = user_settings["rename_rules"].pop(rule_index)
-        set_user_setting(user_id, "rename_rules", user_settings["rename_rules"])
-        await event.answer(f"Removed rule: {removed_rule}")
-        await settings_handler(event)
-    else:
-        await event.answer("Invalid rule index.")
-
-async def done_settings_handler(event):
-    await event.answer("Settings saved!")
-    await event.delete()
-
-async def default_file_handler(event):
-    try:
-        task_id = event.data.decode().split('_')[1]
-        task_data = progress_manager.get_task(task_id)
-        user_id = event.sender_id
-        if task_data:
-            user_settings = get_user_settings(user_id)
-            user_prefix = user_settings.get("prefix", DEFAULT_PREFIX)
-
-            file_name = task_data["file_name"]
-            file_extension = task_data["file_extension"]
-            file_size = task_data["file_size"]
-            url = task_data["url"]
-            mime_type = task_data["mime_type"]
-
-            # Apply rename rules
-            for rule in user_settings["rename_rules"]:
-                file_name = file_name.replace(rule, "")
-            
-            message = await event.respond(message="Processing file upload..")
-            progress_manager.set_message_id(task_id, message.id)
-
-            await download_and_upload(event, url, f"{user_prefix}{file_name}{file_extension}", file_size, mime_type, task_id, file_extension, event, user_id)
-        else:
-             await event.answer("No Active Download")
-    except Exception as e:
-        logging.error(f"Error in default_file_handler: {e}")
-        await event.respond(f"An error occurred. Please try again later")
-
-async def rename_handler(event):
-    try:
-         task_id = event.data.decode().split('_')[1]
-         if progress_manager.get_task(task_id):
-            progress_manager.update_task_status(task_id, "rename_requested")
-            await event.answer(message='Send your desired file name:')
-         else:
-            await event.answer("No Active Download")
-
-    except Exception as e:
-        logging.error(f"Error in rename_handler: {e}")
-        await event.respond(f"An error occurred. Please try again later")
-
-async def cancel_handler(event):
-    try:
-        task_id = event.data.decode().split('_')[1]
-        task_data = progress_manager.get_task(task_id)
-        if task_data:
-            progress_manager.set_cancel_flag(task_id, True)
-            await task_data["progress_bar"].stop("Canceled by User")
-            progress_manager.remove_task(task_id)
-            await event.answer("Upload Canceled")
-        else:
-            await event.answer("No active download to cancel.")
-    except Exception as e:
-        logging.error(f"Error in cancel_handler: {e}")
-        await event.respond(f"An error occurred. Please try again later")
+# Register handlers
+register_handlers(bot)
