@@ -20,7 +20,7 @@ logging.basicConfig(format='[%(levelname) 5s/%(asctime)s] %(name)s: %(message)s'
                     level=logging.INFO)
 
 # Constants
-MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024  # 2 GB
+MAX_FILE_SIZE = 4 * 1024 * 1024 * 1024  # 4 GB now
 CHUNK_SIZE = 1024 * 1024  # 1 MB
 PROGRESS_UPDATE_INTERVAL = 10  # Update every 10% complete
 MAX_RETRIES = 3  # Max retries for download failures
@@ -174,7 +174,7 @@ bot = TelegramClient('bot', API_ID, API_HASH)
 async def start_handler(event):
     try:
         user = await event.get_sender()
-        message_text = f"Hello {get_display_name(user)}! 👋\nI'm ready to upload files for you. I will upload upto 2gb.\nJust send me a URL, and I'll handle the rest.\n\nAvailable Commands:\n/start - Start the bot\n/help - Show this message"
+        message_text = f"Hello {get_display_name(user)}! 👋\nI'm ready to upload files for you. I will upload upto 4gb.\nJust send me a URL, and I'll handle the rest.\n\nAvailable Commands:\n/start - Start the bot\n/help - Show this message"
         await event.respond(message_text)
     except Exception as e:
         logging.error(f"Error in /start handler: {e}")
@@ -205,7 +205,7 @@ async def url_processing(event):
                     file_size = int(response.headers.get('Content-Length', 0))
 
                     if file_size > MAX_FILE_SIZE:
-                        await event.respond('File size exceeds the limit of 2GB.')
+                        await event.respond('File size exceeds the limit of 4GB.')
                         return
 
                     mime_type = response.headers.get('Content-Type', "application/octet-stream")
@@ -255,7 +255,7 @@ async def default_file_handler(event):
             url = progress_messages[task_id]["url"]
             mime_type = progress_messages[task_id]["mime_type"]
             await event.answer(message="Processing file upload..")
-            await download_and_upload(event, url, f"{file_name}{file_extension}", file_size, mime_type, task_id)
+            await download_and_upload(event, url, f"{file_name}{file_extension}", file_size, mime_type, task_id, file_extension)
         else:
              await event.answer("No Active Download")
     except Exception as e:
@@ -290,7 +290,7 @@ async def rename_process(event):
             mime_type = data["mime_type"]
             await event.delete()
             await event.respond(f"Your new File name is: {new_file_name}{file_extension}")
-            await download_and_upload(event, url, f"{new_file_name}{file_extension}", file_size, mime_type, task_id)
+            await download_and_upload(event, url, f"{new_file_name}{file_extension}", file_size, mime_type, task_id, file_extension)
             return
     except Exception as e:
         logging.error(f"Error in rename_process: {e}")
@@ -314,7 +314,7 @@ async def cancel_handler(event):
         logging.error(f"Error in cancel_handler: {e}")
         await event.respond(f"An error occurred. Please try again later")
 
-async def download_and_upload(event, url, file_name, file_size, mime_type, task_id):
+async def download_and_upload(event, url, file_name, file_size, mime_type, task_id, file_extension):
 
     temp_file_path = f"temp_{task_id}"
     try:
