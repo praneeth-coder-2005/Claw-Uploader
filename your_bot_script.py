@@ -373,7 +373,7 @@ async def upload_file(event, file_path, file_name, file_size, mime_type, progres
                 progress_bar.update_progress(current / total)))
 
         uploaded = await bot(SendMediaRequest(
-            peer=await bot.get_input_entity(event.chat_id),
+             peer=await bot.get_input_entity(event.chat_id),
             media=InputMediaUploadedDocument(
                 file=file,
                 mime_type=mime_type,
@@ -395,8 +395,8 @@ async def upload_file(event, file_path, file_name, file_size, mime_type, progres
 async def main():
     try:
         loop = asyncio.get_event_loop()  # Get the event loop
-        await bot.start(bot_token=BOT_TOKEN, loop=loop)  # Start the client with the event loop
-        await bot.run_until_disconnected()
+        await bot.start(bot_token=BOT_TOKEN)
+        await bot.run_until_disconnected(loop=loop) # pass the loop
     except Exception as e:
         logging.error(f"An error occurred in main: {e}")
     finally:
