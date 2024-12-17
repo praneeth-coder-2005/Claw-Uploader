@@ -180,32 +180,15 @@ async def cancel_handler(event):
         logging.error(f"Error in cancel_handler: {e}")
         await event.respond(f"An error occurred. Please try again later")
 
-async def upload_file_chunked(client, file_path, chunk_size, progress_callback, total_parts):
-    file_size = os.path.getsize(file_path)
-    file_id = os.urandom(8)
-    offset = 0
-    
+async def upload_file_chunked(client, file_path, chunk_size, progress_callback):
+      
     with open(file_path, 'rb') as f:
-        while offset < file_size:
-            
-            chunk = f.read(chunk_size)
-            if not chunk:
-                break
-            
-            part = offset // chunk_size # Ensure part is integer
-            await client(functions.upload.SaveBigFilePartRequest(
-                file_id=file_id,
-                file_part=int(part),
-                file_total_parts=int(total_parts),
-                bytes=chunk
-            ))
-            
-            offset += len(chunk)
-            if progress_callback:
-                await progress_callback(offset, file_size)
+        file = await client.upload_file(
+            f,
+            progress_callback=progress_callback
+        )
+    return file
 
-    return types.InputFileBig(id=file_id, parts=int(total_parts), name=os.path.basename(file_path))
-    
 
 async def download_and_upload(event, url, file_name, file_size, mime_type, task_id, file_extension):
     temp_file_path = f"temp_{task_id}"
@@ -266,15 +249,12 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                   upload_chunk_size = math.ceil(file_size / MAX_FILE_PARTS)
                   logging.warning(f"Reducing upload chunk size to {upload_chunk_size / (1024*1024):.2f} MB due to excessive parts {parts}")
                 
-                total_parts = math.ceil(file_size/upload_chunk_size)
-
                 file = await upload_file_chunked(
                       bot,
                       temp_file_path,
                       upload_chunk_size,
                       progress_callback=lambda current, total: asyncio.create_task(
-                          progress_bar.update_progress(current / total)),
-                      total_parts=total_parts
+                          progress_bar.update_progress(current / total))
                     )
 
             uploaded_size = 0
