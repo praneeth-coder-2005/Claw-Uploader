@@ -6,7 +6,10 @@ from telethon import TelegramClient, events, Button, types
 from telethon.tl.functions.messages import SendMediaRequest
 from telethon.tl.types import InputMediaUploadedDocument, DocumentAttributeFilename, InputMediaUploadedPhoto
 from telethon.errors import FloodWaitError
-
+# bot/main.py
+# ... other imports ...
+from bot.services.progress_manager import ProgressManager # Correct import
+# ... rest of the code ...
 from bot.config import API_ID, API_HASH, BOT_TOKEN, DEFAULT_PREFIX, DEFAULT_THUMBNAIL, MAX_FILE_SIZE, MAX_RETRIES, RETRY_DELAY, CHUNK_SIZE, MAX_FILE_PARTS
 from bot.utils import get_user_settings, set_user_setting, upload_thumb, get_file_name_extension, extract_filename_from_content_disposition
 from bot.services.progress_manager import ProgressManager
