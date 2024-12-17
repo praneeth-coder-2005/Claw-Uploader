@@ -174,9 +174,8 @@ bot = TelegramClient('bot', API_ID, API_HASH)
 async def start_handler(event):
     try:
         user = await event.get_sender()
-        await event.respond(
-            f"Hello {get_display_name(user)}! 👋\n I'm ready to upload files for you. I will upload upto 2gb. Just send me a URL and I'll handle it.")
-        await event.respond('Use /help to see available options.')
+        message_text = f"Hello {get_display_name(user)}! 👋\nI'm ready to upload files for you. I will upload upto 2gb.\nJust send me a URL, and I'll handle the rest.\n\nAvailable Commands:\n/start - Start the bot\n/help - Show this message"
+        await event.respond(message_text)
     except Exception as e:
         logging.error(f"Error in /start handler: {e}")
         await event.respond(f"An error occurred. Please try again later")
@@ -390,10 +389,11 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                         DocumentAttributeFilename(file_name)
                     ]
                 ),
-                message=''
+                message='',
             ))
             
             await progress_bar.stop("Upload Complete")
+            await event.respond(uploaded, file=file, caption=f"File Name: {file_name}{file_extension}")
         else:
             await event.respond(
                 f"Error: Download incomplete (Size missmatch) file_size is: {file_size} and downloaded size is: {downloaded_size}")
