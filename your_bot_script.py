@@ -173,7 +173,7 @@ async def help_handler(event):
 @bot.on(events.CallbackQuery(data="upload_url"))
 async def url_handler(event):
     try:
-        await event.answer('Please give url to Upload', show_alert=True)
+        await event.answer(message='Please give url to Upload')
         progress_messages[event.sender_id] = {"status": "url_requested"}
     except Exception as e:
         logging.error(f"Error in url_handler: {e}")
@@ -235,7 +235,7 @@ async def default_file_handler(event):
             file_size = progress_messages[sender_id]["file_size"]
             url = progress_messages[sender_id]["url"]
             mime_type = progress_messages[sender_id]["mime_type"]
-            await event.answer("Processing file upload..")
+            await event.answer(message="Processing file upload..")
             await download_and_upload(event, url, f"{file_name}{file_extension}", file_size, mime_type)
             del progress_messages[sender_id]
     except Exception as e:
@@ -249,7 +249,7 @@ async def rename_handler(event):
         sender_id = int(event.data.split('_')[1])
         if sender_id in progress_messages and progress_messages[sender_id]["status"] == "processing_url":
             progress_messages[sender_id]["status"] = "rename_requested"
-            await event.answer('Send your desired file name:')
+            await event.answer(message='Send your desired file name:')
     except Exception as e:
         logging.error(f"Error in rename_handler: {e}")
         await event.respond(f"An error occurred. Please try again later")
