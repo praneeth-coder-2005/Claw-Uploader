@@ -1,6 +1,6 @@
-# handlers/commands.py
+# bot/handlers/commands.py
 import logging
-from telethon import events
+from telethon import events, Button
 from telethon.utils import get_display_name
 from bot.utils import get_user_settings
 
