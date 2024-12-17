@@ -1,4 +1,4 @@
-# handlers/__init__.py
+# bot/handlers/__init__.py
 from telethon import TelegramClient, events
 from .commands import start_handler, help_handler, settings_handler
 from .callbacks import set_thumbnail_handler, set_prefix_handler, add_rename_rule_handler, remove_rename_rule_handler, remove_rule_callback_handler, done_settings_handler, default_file_handler, rename_handler, cancel_handler, download_and_upload
