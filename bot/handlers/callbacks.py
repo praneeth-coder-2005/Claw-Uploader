@@ -1,4 +1,4 @@
-# handlers/callbacks.py
+# bot/handlers/callbacks.py
 import logging
 import os
 import time
