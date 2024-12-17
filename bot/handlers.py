@@ -18,6 +18,7 @@ from bot.config import DEFAULT_PREFIX, MAX_FILE_SIZE, MAX_RETRIES, RETRY_DELAY, 
 from bot.utils import get_user_settings, upload_thumb, get_file_name_extension, extract_filename_from_content_disposition
 from bot.services.progress_manager import ProgressManager
 from bot.progress import ProgressBar
+from bot.upload_downloader import download_and_upload
 
 # Initialize ProgressManager
 progress_manager = ProgressManager()
