@@ -9,7 +9,6 @@ from telethon.errors import FloodWaitError
 
 from bot.config import API_ID, API_HASH, BOT_TOKEN, DEFAULT_PREFIX, DEFAULT_THUMBNAIL, MAX_FILE_SIZE, MAX_RETRIES, RETRY_DELAY, CHUNK_SIZE, MAX_FILE_PARTS
 from bot.utils import get_user_settings, set_user_setting, upload_thumb, get_file_name_extension, extract_filename_from_content_disposition
-from bot.services.progress import ProgressManager
 from bot.progress import ProgressBar
 # bot/main.py
 # ... other imports ...
