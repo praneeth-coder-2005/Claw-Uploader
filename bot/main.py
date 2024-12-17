@@ -2,7 +2,7 @@
 import asyncio
 import logging
 
-from bot.handlers import bot, register_handlers
+from bot.handlers import bot, register_handlers  # Import bot and register_handlers
 from bot.config import BOT_TOKEN
 
 logging.basicConfig(format='[%(levelname) 5s/%(asctime)s] %(name)s: %(message)s',
@@ -10,7 +10,7 @@ logging.basicConfig(format='[%(levelname) 5s/%(asctime)s] %(name)s: %(message)s'
 
 async def main():
     try:
-        register_handlers(bot)
+        register_handlers(bot)  # Register handlers here
         await bot.start(bot_token=BOT_TOKEN)
         await bot.run_until_disconnected()
     except Exception as e:
