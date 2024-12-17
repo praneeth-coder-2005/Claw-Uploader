@@ -21,12 +21,12 @@ logging.basicConfig(format='[%(levelname) 5s/%(asctime)s] %(name)s: %(message)s'
 
 # Constants
 MAX_FILE_SIZE = 4 * 1024 * 1024 * 1024  # 4 GB
-CHUNK_SIZE = 2 * 1024 * 1024 # 2 MB chunk for faster transfer
+CHUNK_SIZE = 2 * 1024 * 1024 # 2 MB initial chunk size
 PROGRESS_UPDATE_INTERVAL = 5  # Update every 5% complete
 MAX_RETRIES = 3  # Max retries for download failures
 RETRY_DELAY = 5  # Delay between retries in seconds
 FLOOD_WAIT_THRESHOLD = 60
-
+MAX_FILE_PARTS = 3000 # Maximum number of file parts allowed
 
 # Globals
 progress_messages = {}
@@ -374,9 +374,18 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
             with open(temp_file_path, "rb") as f:
                 mime = magic.Magic(mime=True)
                 mime_type = mime.from_file(temp_file_path)
+                
+                # Calculate number of parts
+                parts = math.ceil(file_size / CHUNK_SIZE)
+
+                upload_chunk_size = CHUNK_SIZE
+                if parts > MAX_FILE_PARTS:
+                  upload_chunk_size = math.ceil(file_size / MAX_FILE_PARTS)
+                  logging.warning(f"Reducing upload chunk size to {upload_chunk_size / (1024*1024):.2f} MB due to excessive parts {parts}")
+
                 file = await bot.upload_file(
                       f,
-                      chunk_size=CHUNK_SIZE,
+                      chunk_size=upload_chunk_size,
                       progress_callback=lambda current, total: asyncio.create_task(
                           progress_bar.update_progress(current / total))
                     )
