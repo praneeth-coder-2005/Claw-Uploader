@@ -164,7 +164,7 @@ async def default_file_handler(event):
             url = task_data["url"]
             mime_type = task_data["mime_type"]
             
-            message = await event.answer(message="Processing file upload..")
+            message = await event.respond(message="Processing file upload..")
             progress_manager.set_message_id(task_id, message.id)
 
             await download_and_upload(event, url, f"{file_name}{file_extension}", file_size, mime_type, task_id, file_extension, event)
@@ -287,7 +287,7 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                     upload_chunk_size = math.ceil(file_size / MAX_FILE_PARTS)
                     logging.warning(f"Reducing upload chunk size to {upload_chunk_size / (1024*1024):.2f} MB due to excessive parts {parts}")
                 
-                upload_file = await bot.upload_file(
+                file = await bot.upload_file(
                     f,
                      progress_callback=lambda current, total: asyncio.create_task(
                             progress_bar.update_progress(current / total))
@@ -300,7 +300,7 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                     await bot(SendMediaRequest(
                         peer=await bot.get_input_entity(current_event.chat_id),
                         media=InputMediaUploadedDocument(
-                            file=upload_file,
+                            file=file,
                             mime_type=mime_type,
                             attributes=[
                                 DocumentAttributeFilename(file_name)
