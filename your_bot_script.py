@@ -394,9 +394,9 @@ async def upload_file(event, file_path, file_name, file_size, mime_type, progres
 
 async def main():
     try:
-        loop = asyncio.get_event_loop()  # Get the event loop
+        # loop = asyncio.get_event_loop() # Removed this line
         await bot.start(bot_token=BOT_TOKEN)
-        await bot.run_until_disconnected(loop=loop) # pass the loop
+        await bot.run_until_disconnected() # Removed loop=loop
     except Exception as e:
         logging.error(f"An error occurred in main: {e}")
     finally:
