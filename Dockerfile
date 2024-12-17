@@ -1,10 +1,13 @@
- FROM python:3.9-slim-buster
+FROM python:3.9-slim-buster
 
- WORKDIR /app
+WORKDIR /app
 
- COPY requirements.txt .
- RUN pip install -r requirements.txt
+COPY requirements.txt .
+RUN pip install -r requirements.txt
 
- COPY . .
+# Install libmagic
+RUN apt-get update && apt-get install -y libmagic1
 
- CMD ["python", "your_bot_script.py"]
+COPY . .
+
+CMD ["python", "your_bot_script.py"]
