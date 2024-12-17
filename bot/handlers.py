@@ -142,10 +142,10 @@ async def url_processing(event):
 
 
         except aiohttp.ClientError as e:
-            logging.error(f"AIOHTTP Error fetching URL {url}: {e}")
+            logging.error(f"AIOHTTP Error fetching URL {url}: {e}, url: {url}")
             await event.respond(f"Error fetching URL: {e}")
         except Exception as e:
-            logging.error(f"An unexpected error occurred while processing URL {url}: {e}")
+            logging.error(f"An unexpected error occurred while processing URL {url}: {e}, url: {url}")
             await event.respond(f"An error occurred: {e}")
     except Exception as e:
         logging.error(f"Error in url_processing handler: {e}")
@@ -236,7 +236,9 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
 
         task_data = progress_manager.get_task(task_id)
         message_id = task_data.get("message_id")
-        progress_bar = ProgressBar(file_size, "Processing", bot, current_event, task_id, file_name, file_size, message_id=message_id)
+        progress_bar = ProgressBar(file_size, "Processing", bot, current_event, task_id, file_name, file_size)
+        if message_id:
+            progress_bar.set_message_id(message_id)
         task_data["progress_bar"] = progress_bar
         
         for attempt in range(MAX_RETRIES):
@@ -262,15 +264,15 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                                 await progress_bar.update_progress(downloaded_size / file_size, download_speed=download_speed)
                         break
             except aiohttp.ClientError as e:
-                logging.error(f"Download error (attempt {attempt + 1}/{MAX_RETRIES}) from {url}: {e}")
+                logging.error(f"Download error (attempt {attempt + 1}/{MAX_RETRIES}) from {url}: {e}, url:{url}")
                 if attempt < MAX_RETRIES - 1:
                     await asyncio.sleep(RETRY_DELAY)
                 else:
-                    logging.error(f"Maximum retries reached for download from {url}")
+                    logging.error(f"Maximum retries reached for download from {url}, url: {url}")
                     await current_event.respond(f"Download Error: {e}. Maximum retries reached.")
                     return
             except Exception as e:
-                logging.error(f"An exception occurred in downlaod_and_upload while downloading file : {e}")
+                logging.error(f"An exception occurred in downlaod_and_upload while downloading file : {e}, url: {url}")
                 await current_event.respond(f"An error occurred : {e}")
                 return
         if downloaded_size == file_size:
@@ -315,7 +317,7 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                     await download_and_upload(event, url, file_name, file_size, mime_type, task_id, file_extension, current_event)
                     return
                 except Exception as e:
-                      logging.error(f"An error occurred during upload: {e}")
+                      logging.error(f"An error occurred during upload: {e}, url: {url}")
                       await current_event.respond(f"An error occurred during upload: {e}")
                       return
 
@@ -324,7 +326,7 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                 f"Error: Download incomplete (Size mismatch) file_size is: {file_size} and downloaded size is: {downloaded_size}")
 
     except Exception as e:
-        logging.error(f"An unexpected error occurred in downlaod_and_upload: {e}")
+        logging.error(f"An unexpected error occurred in downlaod_and_upload: {e}, url: {url}")
         await current_event.respond(f"An error occurred: {e}")
     finally:
        progress_manager.remove_task(task_id)
