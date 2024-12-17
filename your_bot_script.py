@@ -225,10 +225,10 @@ async def url_processing(event):
         await event.respond(f"An error occurred. Please try again later")
 
 
-@bot.on(events.CallbackQuery(data=lambda data: data.startswith('default_')))
+@bot.on(events.CallbackQuery(data=lambda data: data.decode().startswith('default_')))
 async def default_file_handler(event):
     try:
-        sender_id = int(event.data.split('_')[1])
+        sender_id = int(event.data.decode().split('_')[1])
         if sender_id in progress_messages and progress_messages[sender_id]["status"] == "processing_url":
             file_name = progress_messages[sender_id]["file_name"]
             file_extension = progress_messages[sender_id]["file_extension"]
@@ -243,10 +243,10 @@ async def default_file_handler(event):
         await event.respond(f"An error occurred. Please try again later")
 
 
-@bot.on(events.CallbackQuery(data=lambda data: data.startswith('rename_')))
+@bot.on(events.CallbackQuery(data=lambda data: data.decode().startswith('rename_')))
 async def rename_handler(event):
     try:
-        sender_id = int(event.data.split('_')[1])
+        sender_id = int(event.data.decode().split('_')[1])
         if sender_id in progress_messages and progress_messages[sender_id]["status"] == "processing_url":
             progress_messages[sender_id]["status"] = "rename_requested"
             await event.answer(message='Send your desired file name:')
@@ -273,10 +273,10 @@ async def rename_process(event):
         await event.respond(f"An error occurred. Please try again later")
 
 
-@bot.on(events.CallbackQuery(data=lambda data: data.startswith('cancel_')))
+@bot.on(events.CallbackQuery(data=lambda data: data.decode().startswith('cancel_')))
 async def cancel_handler(event):
     try:
-        task_id = event.data.split('_')[1]
+        task_id = event.data.decode().split('_')[1]
         if task_id in progress_messages:
 
             progress_message = progress_messages[task_id]
