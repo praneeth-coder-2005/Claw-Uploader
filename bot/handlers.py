@@ -50,6 +50,7 @@ async def url_processing(event):
                     file_name, file_extension = os.path.splitext(original_file_name)
                     
                 task_id = str(uuid.uuid4())
+                logging.info(f"URL Processing - New task ID: {task_id}")  # Log new task ID
                 task_data = {
                     "file_name": file_name,
                     "file_extension": file_extension,
@@ -59,6 +60,7 @@ async def url_processing(event):
                      "cancel_flag": False
                 }
                 progress_manager.add_task(task_id, task_data)
+                logging.info(f"URL Processing - Task added: {progress_manager.progress_messages}")
                 buttons = [[Button.inline("Default", data=f"default_{task_id}"),
                             Button.inline("Rename", data=f"rename_{task_id}")]]
                 await event.respond(
@@ -77,9 +79,20 @@ async def default_file_handler(event):
         task_id = event.data.decode().split('_')[1]
         user_id = event.sender_id  # Get user_id before checking task_data
 
-        task_data = progress_manager.get_task(task_id)
+        logging.info(f"Default File Handler - Task ID: {task_id}")  # Log task ID
+        logging.info(f"Default File Handler - Current tasks: {progress_manager.progress_messages}")  # Log progress_manager contents
 
-        if task_data:  # Correctly check if task_data exists
+        retries = 0
+        max_retries = 3
+        task_data = None
+        while retries < max_retries:
+            task_data = progress_manager.get_task(task_id)
+            if task_data:
+                break  # Task data found
+            await asyncio.sleep(0.1)
+            retries += 1
+
+        if task_data:
             user_settings = get_user_settings(user_id)
             user_prefix = user_settings.get("prefix", DEFAULT_PREFIX)
 
