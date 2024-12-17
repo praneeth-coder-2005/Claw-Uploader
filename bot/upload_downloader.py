@@ -40,7 +40,10 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
         progress_bar = ProgressBar(file_size, "Processing", event.client, current_event, task_id, file_name, file_size)
         if message_id:
             progress_bar.set_message_id(message_id)
+        
+        # Update progress_manager.progress_messages directly
         task_data["progress_bar"] = progress_bar
+        progress_manager.progress_messages[task_id] = task_data
         
         for attempt in range(MAX_RETRIES):
             try:
