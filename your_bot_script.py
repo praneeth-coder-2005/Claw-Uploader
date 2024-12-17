@@ -380,7 +380,8 @@ async def upload_file(event, file_path, file_name, file_size, mime_type, progres
                 attributes=[
                     DocumentAttributeFilename(file_name)
                 ]
-            )
+            ),
+            message='' # Passing empty string here to avoid error.
         ))
 
         await progress_bar.stop("Upload Complete")
