@@ -7,7 +7,7 @@ from telethon.errors import FloodWaitError
 from bot.config import API_ID, API_HASH, BOT_TOKEN
 from bot.handlers import url_processing, default_file_handler, rename_handler, cancel_handler, rename_process
 from bot.services.progress_manager import ProgressManager
-from bot.settings_handlers import settings_handler, set_thumbnail_handler, set_prefix_handler, add_rename_rule_handler, remove_rename_rule_handler, remove_rule_callback_handler, done_settings_handler
+from bot.settings_handlers import settings_handler, set_thumbnail_handler, set_prefix_handler, add_rename_rule_handler, remove_rename_rule_handler, remove_rule_callback_handler, done_settings_handler, process_settings_input
 
 # Initialize the bot
 bot = TelegramClient('bot', API_ID, API_HASH)
@@ -23,7 +23,7 @@ async def start_handler(event):
         f"Available Commands:\n"
         f"/start - Start the bot\n"
         f"/help - Show this message\n"
-		f"/settings - Change bot settings\n"
+        f"/settings - Change bot settings\n"
         f"/cancel - Cancel the current operation\n"
     )
 
@@ -37,7 +37,7 @@ async def help_handler(event):
         "**Available Commands:**\n"
         f"/start - Start the bot\n"
         f"/help - Show this message\n"
-		f"/settings - Change bot settings\n"
+        f"/settings - Change bot settings\n"
         f"/cancel - Cancel the current operation"
     )
 
@@ -68,6 +68,8 @@ def register_handlers(bot, progress_manager):
     bot.add_event_handler(remove_rename_rule_handler, events.CallbackQuery(data=lambda data: data.decode() == 'remove_rename_rule'))
     bot.add_event_handler(remove_rule_callback_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('remove_rule_')))
     bot.add_event_handler(done_settings_handler, events.CallbackQuery(data=lambda data: data.decode() == 'done_settings'))
+    bot.add_event_handler(process_settings_input, events.NewMessage)
+
 
 async def main():
     register_handlers(bot, progress_manager) # Register handlers
