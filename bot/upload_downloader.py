@@ -14,7 +14,7 @@ from telethon.tl.types import InputMediaUploadedDocument, DocumentAttributeFilen
 from bot.config import MAX_RETRIES, RETRY_DELAY, CHUNK_SIZE, MAX_FILE_PARTS
 from bot.progress import ProgressBar
 
-async def download_and_upload(event, url, file_name, file_size, mime_type, task_id, file_extension, current_event, user_id):
+async def download_and_upload(event, url, file_name, file_size, mime_type, task_id, file_extension, current_event, user_id, progress_manager):
     temp_file_path = f"temp_{task_id}"
     try:
         downloaded_size = 0
@@ -22,7 +22,7 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
         download_speed = 0
         upload_speed = 0
 
-        task_data = event.client.task_data.get(task_id)
+        task_data = progress_manager.get_task(task_id)
         if task_data is None:
             logging.error(f"Task data not found for task_id: {task_id}")
             await current_event.respond("Error: Task data not found. Please try again.")
@@ -43,7 +43,7 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
 
                         with open(temp_file_path, "wb") as temp_file:
                             while True:
-                                if task_data["cancel_flag"]:
+                                if progress_manager.get_cancel_flag(task_id):
                                     logging.info(f"Task {task_id} canceled by user.")
                                     return
                                 chunk = await response.content.readany()
@@ -84,8 +84,7 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
     finally:
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
-        if task_id in event.client.task_data:
-            del event.client.task_data[task_id]
+        progress_manager.remove_task(task_id)
 
 async def upload_file(event, temp_file_path, file_name, file_size, mime_type, task_id, file_extension, progress_bar, current_event, user_id):
     start_upload_time = time.time()
