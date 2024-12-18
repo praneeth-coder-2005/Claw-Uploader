@@ -67,7 +67,6 @@ async def url_processing(event):
                     buttons=buttons
                 )
 
-                # Update message_id in task_data
                 task_data["message_id"] = message.id
                 event.client.task_data[task_id] = task_data
 
@@ -88,7 +87,6 @@ async def default_file_handler(event):
     task_data = event.client.task_data.get(task_id)
 
     if task_data:
-        # Download and upload in the background
         asyncio.create_task(download_and_upload_in_background(event, task_data, user_id))
     else:
         await event.answer("No Active Download")
@@ -105,13 +103,11 @@ async def download_and_upload_in_background(event, task_data, user_id):
         mime_type = task_data["mime_type"]
         task_id = task_data["task_id"]
 
-        # Apply rename rules
         for rule in user_settings["rename_rules"]:
             file_name = file_name.replace(rule, "")
 
         file_name = f"{user_prefix}{file_name}{file_extension}"
 
-        # Get the existing message
         message_id = task_data.get("message_id")
         message = await event.client.get_messages(event.chat_id, ids=message_id)
 
@@ -120,16 +116,19 @@ async def download_and_upload_in_background(event, task_data, user_id):
             await event.respond("Error: Could not find the original message to update.")
             return
 
-        # Create and use a new instance of ProgressBar for each task
         progress_bar = ProgressBar(file_size, "Processing", event.client, event, task_id, file_name, file_size)
         task_data["progress_bar"] = progress_bar
+        event.client.task_data[task_id] = task_data
 
-        # Perform the download and upload
         await download_and_upload(event, url, file_name, file_size, mime_type, task_id, file_extension, event, user_id)
 
     except Exception as e:
         logging.error(f"Error in background download and upload: {e}")
         await event.respond(f"An error occurred during the download and upload process.")
+
+    finally:
+        if task_id in event.client.task_data:
+            del event.client.task_data[task_id]
 
 async def rename_handler(event):
     try:
@@ -169,31 +168,34 @@ async def rename_process(event):
         user_id = event.sender_id
         task_id = None
         for key, task in event.client.task_data.items():
-            if task.get("status") == "rename_requested":
+            if task.get("status") == "rename_requested" and event.sender_id == user_id:
                 task_id = key
                 break
+
         if not task_id:
-            logging.error("No active rename task found")
             return
+
         task_data = event.client.task_data.get(task_id)
-        
         if task_data and task_data.get("status") == "rename_requested":
             user_settings = get_user_settings(user_id)
             user_prefix = user_settings.get("prefix", DEFAULT_PREFIX)
+
             new_file_name = event.text
             file_extension = task_data["file_extension"]
             file_size = task_data["file_size"]
             url = task_data["url"]
             mime_type = task_data["mime_type"]
             await event.delete()
-            message = await event.respond(f"Your new File name is: {user_prefix}{new_file_name}{file_extension}")
-            task_data["message_id"] = message.id
-            task_data["status"] = "default"
+
+            # Update task_data with the new file name
             task_data["file_name"] = new_file_name
+            task_data["status"] = "default"
             event.client.task_data[task_id] = task_data
+
+            # Call download_and_upload_in_background with updated task_data
             asyncio.create_task(download_and_upload_in_background(event, task_data, user_id))
         else:
-            await event.respond("No active rename task found.")
+            await event.respond("No active rename request found.")
     except Exception as e:
         logging.error(f"Error in rename_process: {e}")
         await event.respond(f"An error occurred. Please try again later")
