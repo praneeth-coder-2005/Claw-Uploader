@@ -9,48 +9,16 @@ from telethon.errors import FloodWaitError
 from bot.config import API_ID, API_HASH, BOT_TOKEN, DEFAULT_PREFIX, DEFAULT_THUMBNAIL
 from bot.utils import get_user_settings, set_user_setting, upload_thumb, get_file_name_extension, extract_filename_from_content_disposition
 from bot.handlers import url_processing, default_file_handler, rename_handler, cancel_handler, rename_process
-from bot.handlers import set_thumbnail_handler, set_prefix_handler, add_rename_rule_handler, remove_rename_rule_handler, remove_rule_callback_handler, done_settings_handler
+from bot.settings_handlers import settings_handler, set_thumbnail_handler, set_prefix_handler, add_rename_rule_handler, remove_rename_rule_handler, remove_rule_callback_handler, done_settings_handler
 
 # Initialize the bot
 bot = TelegramClient('bot', API_ID, API_HASH)
 
-# Handlers
-async def start_handler(event):
-    user = await event.get_sender()
-    await event.respond(
-        f"Hello {user.first_name}! 👋\n"
-        f"I'm ready to upload files for you (up to 2GB).\n"
-        f"Just send me a URL, and I'll handle the rest.\n\n"
-        f"Available Commands:\n"
-        f"/start - Start the bot\n"
-        f"/help - Show this message\n"
-        f"/settings - Configure custom settings")
-
-async def help_handler(event):
-    await event.respond(
-        'Available Commands:\n/start - Start the bot\n/help - Show this message\n/settings - Configure custom settings')
-
-async def settings_handler(event):
-    user_id = event.sender_id
-    user_settings = get_user_settings(user_id)
-    message = (
-        "Current Settings:\n\n"
-        f"🖼️ **Thumbnail:** {user_settings['thumbnail'] if user_settings['thumbnail'] else 'Default'}\n"
-        f"✍️ **Prefix:** {user_settings['prefix'] if user_settings['prefix'] else 'Default'}\n"
-        f"✏️ **Rename Rules:** {', '.join(user_settings['rename_rules']) if user_settings['rename_rules'] else 'None'}\n\n"
-        "What do you want to change?"
-    )
-    buttons = [
-        [Button.inline("🖼️ Set Thumbnail", data="set_thumbnail")],
-        [Button.inline("✍️ Set Prefix", data="set_prefix")],
-        [Button.inline("✏️ Add Rename Rule", data="add_rename_rule")],
-        [Button.inline("❌ Remove Rename Rule", data="remove_rename_rule")],
-        [Button.inline("✅ Done", data="done_settings")]]
-    await event.respond(message, buttons=buttons)
+# ... other handlers ...
 
 async def handle_settings_input(event):
     user_id = event.sender_id
-    task_data = getattr(event.client, 'task_data', {}).get(str(user_id))
+    task_data = event.client.task_data.get(str(user_id))
 
     if task_data:
         status = task_data.get("status")
