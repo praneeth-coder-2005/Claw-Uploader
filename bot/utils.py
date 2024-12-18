@@ -77,7 +77,7 @@ async def upload_thumb(event, user_id, file=None):
     if file:
         try:
             uploaded_file = await event.client.upload_file(file)
-            return uploaded_file
+            return uploaded_file.id # Returning file id instead of InputSizedFile
         except Exception as e:
             logging.error(f"Error uploading thumbnail file : {e}")
             return None
