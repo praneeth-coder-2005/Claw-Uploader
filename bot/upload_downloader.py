@@ -11,6 +11,8 @@ from telethon.errors import FloodWaitError
 from telethon.tl.functions.messages import SendMediaRequest
 from telethon.tl.types import InputMediaUploadedDocument, DocumentAttributeFilename, InputMediaUploadedPhoto, InputFile
 from telethon.tl.functions.upload import GetFileRequest
+from telethon.tl.types import InputFile, InputMediaUploadedPhoto
+
 
 from bot.config import MAX_RETRIES, RETRY_DELAY, CHUNK_SIZE, MAX_FILE_PARTS
 from bot.progress import ProgressBar
@@ -102,13 +104,17 @@ async def upload_file(event, temp_file_path, file_name, file_size, mime_type, ta
                 logging.warning(f"Reducing upload chunk size to {upload_chunk_size / (1024*1024):.2f} MB due to excessive parts {parts}")
 
             thumb = await upload_thumb(current_event, user_id)
-            
+            uploaded_thumb = None
+
             if thumb:
                 try:
                     thumb_file = await event.client(GetFileRequest(location=InputFile(id=thumb,
                                                                                         access_hash=0,
                                                                                         file_reference=b'')))
-                    thumb = await event.client.upload_file(thumb_file.bytes)
+                    uploaded_thumb = await event.client.upload_file(thumb_file.bytes)
+                    thumb = InputMediaUploadedPhoto(file=uploaded_thumb)
+
+
                 except Exception as e:
                     logging.error(f"Error fetching thumbnail: {e}")
                     thumb = None
@@ -124,12 +130,14 @@ async def upload_file(event, temp_file_path, file_name, file_size, mime_type, ta
             await progress_bar.update_progress(1, upload_speed=upload_speed)
 
 
+
             media = InputMediaUploadedDocument(
                 file=file,
                 mime_type=mime_type,
                 attributes=[DocumentAttributeFilename(file_name)],
-                thumb = thumb
+                thumb = thumb if thumb else None
             )
+
 
             await event.client(SendMediaRequest(
                 peer=await event.client.get_input_entity(current_event.chat_id),
