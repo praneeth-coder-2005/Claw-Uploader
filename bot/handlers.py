@@ -58,7 +58,8 @@ async def url_processing(event):
                     "file_size": file_size,
                     "url": url,
                     "mime_type": mime_type,
-                     "cancel_flag": False
+                    "cancel_flag": False,
+                    "message_id": None
                 }
                 progress_manager.add_task(task_id, task_data)
                 logging.info(f"URL Processing - Task added: {progress_manager.progress_messages}")
@@ -77,7 +78,7 @@ async def url_processing(event):
 
 async def default_file_handler(event):
     task_id = event.data.decode().split('_')[1]
-    user_id = event.sender_id
+    user_id = event.sender_id  # Get user_id before checking task_data
 
     logging.info(f"Default File Handler - Task ID: {task_id}")
     logging.info(f"Default File Handler - Current tasks: {progress_manager.progress_messages}")
@@ -85,7 +86,7 @@ async def default_file_handler(event):
     task_data = progress_manager.get_task(task_id)
 
     if task_data:
-        # Use asyncio.create_task to run download_and_upload in the background
+        # Download and upload in the background
         asyncio.create_task(download_and_upload_in_background(event, task_data, user_id))
     else:
         await event.answer("No Active Download")
@@ -119,8 +120,8 @@ async def download_and_upload_in_background(event, task_data, user_id):
 
         if not message:
             message = await event.respond(f"Starting download and upload of {file_name}...")
-            progress_manager.set_message_id(task_id, message.id) # Update the task data with the message_id
-            task_data["message_id"] = message.id # Update the task data with the message_id
+            progress_manager.set_message_id(task_id, message.id)  # Update task data with message_id
+            task_data["message_id"] = message.id  # Update task data with message_id
 
         # Create and use a new instance of ProgressBar for each task
         progress_bar = ProgressBar(file_size, "Processing", event.client, event, task_id, file_name, file_size)
