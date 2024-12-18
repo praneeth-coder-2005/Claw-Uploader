@@ -78,32 +78,27 @@ async def upload_thumb(event, file_path, user_id):
         thumbnail_id = user_settings.get("thumbnail")
 
         if thumbnail_id:
-            # Use the existing thumbnail ID if available
-            return thumbnail_id
+            return thumbnail_id  # Use existing thumbnail ID
 
-        else:
-            # Use the default thumbnail URL
-            thumbnail_url = DEFAULT_THUMBNAIL
+        # Use default thumbnail if user hasn't set one
+        thumbnail_url = DEFAULT_THUMBNAIL
 
-            # Download the thumbnail
-            async with aiohttp.ClientSession() as session:
-                async with session.get(thumbnail_url) as thumb_response:
-                    if thumb_response.status == 200:
-                        thumb_data = await thumb_response.read()
-                        # Upload thumbnail as a photo
-                        file = await event.client.upload_file(thumb_data, file_name="thumbnail.jpg")
-                        # Get photo ID
-                        photo = await event.client(
-                            SendMediaRequest(
-                                peer=await event.client.get_input_entity(event.chat_id),
-                                media=InputMediaUploadedPhoto(file=file),
-                                message="Uploading Thumbnail"
-                            )
-                        )
-                        return photo.photo.id
-                    else:
-                        logging.error(f"Error downloading thumbnail from {thumbnail_url}: Status {thumb_response.status}")
-                        return None
+        async with aiohttp.ClientSession() as session:
+            async with session.get(thumbnail_url) as thumb_response:
+                if thumb_response.status == 200:
+                    thumb_data = await thumb_response.read()
+                    file = await event.client.upload_file(thumb_data, file_name="thumbnail.jpg")
+                    # No need to send a message here, just get the photo ID
+                    photo = await event.client(SendMediaRequest(
+                        peer=await event.client.get_input_entity(event.chat_id),
+                        media=InputMediaUploadedPhoto(file=file),
+                        message="",  # Empty message
+                        silent=True  # Send silently
+                    ))
+                    return photo.photo.id
+                else:
+                    logging.error(f"Error downloading thumbnail from {thumbnail_url}: Status {thumb_response.status}")
+                    return None
 
     except Exception as e:
         logging.error(f"Error uploading thumbnail: {e}")
