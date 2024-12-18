@@ -81,8 +81,11 @@ async def process_settings_input(event):
                     try:
                         file = await event.client.download_media(event.media)
                         thumb_file_id = await upload_thumb(event,user_id, file)
-                        set_user_setting(user_id, "thumbnail", thumb_file_id)
-                        await event.respond("Thumbnail updated!")
+                        if thumb_file_id:
+                            set_user_setting(user_id, "thumbnail", thumb_file_id)
+                            await event.respond("Thumbnail updated!")
+                        else:
+                             await event.respond("Error updating thumbnail.")
                         if os.path.exists(file):
                             os.remove(file)
                     except Exception as e:
