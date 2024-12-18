@@ -106,7 +106,11 @@ async def download_and_upload_in_background(event, task_data, user_id):
         for rule in user_settings["rename_rules"]:
             file_name = file_name.replace(rule, "")
 
-        file_name = f"{user_prefix}{file_name}{file_extension}"
+        # Prepend user prefix if available
+        if user_prefix:
+            file_name = f"{user_prefix}{file_name}{file_extension}"
+        else:
+            file_name = f"{file_name}{file_extension}"
 
         message_id = task_data.get("message_id")
         message = await event.client.get_messages(event.chat_id, ids=message_id)
@@ -187,12 +191,15 @@ async def rename_process(event):
             mime_type = task_data["mime_type"]
             await event.delete()
 
-            # Update task_data with the new file name
-            task_data["file_name"] = new_file_name
-            task_data["status"] = "default"
-            event.client.task_data[task_id] = task_data
+            # Prepend user prefix to the new file name
+            if user_prefix:
+                new_file_name = f"{user_prefix}{new_file_name}"
 
-            # Call download_and_upload_in_background with updated task_data
+            message = await event.respond(f"Your new File name is: {new_file_name}{file_extension}")
+            task_data["message_id"] = message.id
+            task_data["status"] = "default"
+            task_data["file_name"] = new_file_name  # Update the file_name in task_data
+            event.client.task_data[task_id] = task_data
             asyncio.create_task(download_and_upload_in_background(event, task_data, user_id))
         else:
             await event.respond("No active rename request found.")
