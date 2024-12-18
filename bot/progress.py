@@ -1,4 +1,3 @@
-# bot/progress.py
 import time
 import asyncio
 import logging
