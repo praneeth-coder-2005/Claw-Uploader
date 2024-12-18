@@ -25,24 +25,28 @@ async def settings_handler(event):
 
 async def set_thumbnail_handler(event):
     user_id = event.sender_id
-    await event.client.task_data.setdefault(str(user_id), {}).update({"status": "set_thumbnail"})
-    await event.respond("Please send me the image to use as a thumbnail:")
+    event.client.task_data = event.client.task_data if hasattr(event.client, 'task_data') else {}
+    event.client.task_data.setdefault(str(user_id), {}).update({"status": "set_thumbnail"})
+    await event.answer(message="Please send me the image to use as a thumbnail:")
 
 async def set_prefix_handler(event):
     user_id = event.sender_id
-    await event.client.task_data.setdefault(str(user_id), {}).update({"status": "set_prefix"})
-    await event.respond("Please send me the new prefix:")
+    event.client.task_data = event.client.task_data if hasattr(event.client, 'task_data') else {}
+    event.client.task_data.setdefault(str(user_id), {}).update({"status": "set_prefix"})
+    await event.answer(message="Please send me the new prefix:")
 
 async def add_rename_rule_handler(event):
     user_id = event.sender_id
-    await event.client.task_data.setdefault(str(user_id), {}).update({"status": "add_rename_rule"})
-    await event.respond("Please send me the text to remove from filenames:")
+    event.client.task_data = event.client.task_data if hasattr(event.client, 'task_data') else {}
+    event.client.task_data.setdefault(str(user_id), {}).update({"status": "add_rename_rule"})
+    await event.answer(message="Please send me the text to remove from filenames:")
 
 async def remove_rename_rule_handler(event):
     user_id = event.sender_id
     user_settings = get_user_settings(user_id)
+    event.client.task_data = event.client.task_data if hasattr(event.client, 'task_data') else {}
     if user_settings["rename_rules"]:
-        await event.client.task_data.setdefault(str(user_id), {}).update({"status": "remove_rename_rule"})
+        event.client.task_data.setdefault(str(user_id), {}).update({"status": "remove_rename_rule"})
         buttons = [[Button.inline(rule, data=f"remove_rule_{i}")] for i, rule in enumerate(user_settings["rename_rules"])]
         await event.respond("Which rule do you want to remove?", buttons=buttons)
     else:
@@ -64,9 +68,10 @@ async def done_settings_handler(event):
     await event.answer("Settings saved!")
     await event.delete()
 
-@events.register(events.NewMessage(func=lambda e: hasattr(e, 'client') and hasattr(e.client, 'task_data')))
+
 async def process_settings_input(event):
     user_id = event.sender_id
+    event.client.task_data = event.client.task_data if hasattr(event.client, 'task_data') else {}
     task_data = event.client.task_data.get(str(user_id), {})
     status = task_data.get("status")
 
@@ -87,14 +92,16 @@ async def process_settings_input(event):
                     await event.respond("Please send a valid image for the thumbnail.")
             else:
                 await event.respond("Please send a valid image for the thumbnail.")
-            del event.client.task_data[str(user_id)]
+            if str(user_id) in event.client.task_data:
+                del event.client.task_data[str(user_id)]
             await settings_handler(event)
 
     elif status == "set_prefix":
             new_prefix = event.text.strip()
             set_user_setting(user_id, "prefix", new_prefix)
             await event.respond(f"Prefix updated to: {new_prefix}")
-            del event.client.task_data[str(user_id)]
+            if str(user_id) in event.client.task_data:
+                  del event.client.task_data[str(user_id)]
             await settings_handler(event)
 
     elif status == "add_rename_rule":
@@ -106,5 +113,6 @@ async def process_settings_input(event):
                 await event.respond(f"Added rename rule: {rule}")
             else:
                 await event.respond(f"Rule already exists: {rule}")
-            del event.client.task_data[str(user_id)]
+            if str(user_id) in event.client.task_data:
+                del event.client.task_data[str(user_id)]
             await settings_handler(event)
