@@ -1,5 +1,3 @@
-# bot/handlers.py
-
 import aiohttp
 import asyncio
 import logging
@@ -16,18 +14,14 @@ from telethon.errors import FloodWaitError
 
 from bot.config import DEFAULT_PREFIX, MAX_FILE_SIZE, MAX_RETRIES, RETRY_DELAY, CHUNK_SIZE, MAX_FILE_PARTS
 from bot.utils import get_user_settings, upload_thumb, get_file_name_extension, extract_filename_from_content_disposition
-from bot.services.progress_manager import ProgressManager
 from bot.progress import ProgressBar
 from bot.upload_downloader import download_and_upload
-
-# Initialize ProgressManager
-progress_manager = ProgressManager()
 
 async def url_processing(event):
     try:
         url = event.text.strip()
         if not url.startswith("http://") and not url.startswith("https://"):
-            return  # Ignore non-URL messages
+            return
 
         await event.delete()
         user_id = event.sender_id
@@ -48,11 +42,11 @@ async def url_processing(event):
                     file_name, file_extension = get_file_name_extension(url)
                 else:
                     file_name, file_extension = os.path.splitext(original_file_name)
-                    
+
                 task_id = str(uuid.uuid4())
-                logging.info(f"URL Processing - New task ID: {task_id}")  # Log new task ID
+                logging.info(f"URL Processing - New task ID: {task_id}")
                 task_data = {
-                    "task_id": task_id,  # Store task_id in task_data
+                    "task_id": task_id,
                     "file_name": file_name,
                     "file_extension": file_extension,
                     "file_size": file_size,
@@ -61,8 +55,11 @@ async def url_processing(event):
                     "cancel_flag": False,
                     "message_id": None
                 }
-                progress_manager.add_task(task_id, task_data)
-                logging.info(f"URL Processing - Task added: {progress_manager.progress_messages}")
+
+                # Store task data in event.client
+                event.client.task_data = {task_id: task_data}
+
+                logging.info(f"URL Processing - Task data stored: {event.client.task_data}")
                 buttons = [[Button.inline("Default", data=f"default_{task_id}"),
                             Button.inline("Rename", data=f"rename_{task_id}")]]
                 await event.respond(
@@ -78,17 +75,15 @@ async def url_processing(event):
 
 async def default_file_handler(event):
     task_id = event.data.decode().split('_')[1]
-    user_id = event.sender_id  # Get user_id before checking task_data
+    user_id = event.sender_id
 
     logging.info(f"Default File Handler - Task ID: {task_id}")
-    logging.info(f"Default File Handler - Current tasks: {progress_manager.progress_messages}")
-
-    task_data = progress_manager.get_task(task_id)
+    task_data = event.client.task_data.get(task_id)
 
     if task_data:
-        # Download and upload in the background
         asyncio.create_task(download_and_upload_in_background(event, task_data, user_id))
     else:
+        logging.error(f"No task data found for task_id: {task_id}")
         await event.answer("No Active Download")
 
 async def download_and_upload_in_background(event, task_data, user_id):
@@ -103,13 +98,11 @@ async def download_and_upload_in_background(event, task_data, user_id):
         mime_type = task_data["mime_type"]
         task_id = task_data["task_id"]
 
-        # Apply rename rules
         for rule in user_settings["rename_rules"]:
             file_name = file_name.replace(rule, "")
 
         file_name = f"{user_prefix}{file_name}{file_extension}"
 
-        # Get the existing message or send a new one
         message = None
         message_id = task_data.get("message_id")
         if message_id:
@@ -120,32 +113,33 @@ async def download_and_upload_in_background(event, task_data, user_id):
 
         if not message:
             message = await event.respond(f"Starting download and upload of {file_name}...")
-            progress_manager.set_message_id(task_id, message.id)  # Update task data with message_id
-            task_data["message_id"] = message.id  # Update task data with message_id
+            task_data["message_id"] = message.id
+            event.client.task_data[task_id] = task_data
 
-        # Create and use a new instance of ProgressBar for each task
         progress_bar = ProgressBar(file_size, "Processing", event.client, event, task_id, file_name, file_size)
         task_data["progress_bar"] = progress_bar
+        event.client.task_data[task_id] = task_data
 
-        # Update task data with progress bar
-        progress_manager.update_task(task_id, task_data)
-
-        # Perform the download and upload
         await download_and_upload(event, url, file_name, file_size, mime_type, task_id, file_extension, event, user_id)
 
     except Exception as e:
         logging.error(f"Error in background download and upload: {e}")
         await event.respond(f"An error occurred during the download and upload process.")
 
+    finally:
+        if task_id in event.client.task_data:
+            del event.client.task_data[task_id]
+
 async def rename_handler(event):
     try:
         task_id = event.data.decode().split('_')[1]
-        if progress_manager.get_task(task_id):
-            progress_manager.update_task_status(task_id, "rename_requested")
+        task_data = event.client.task_data.get(task_id)
+        if task_data:
+            task_data["status"] = "rename_requested"
+            event.client.task_data[task_id] = task_data
             await event.answer(message='Send your desired file name:')
         else:
             await event.answer("No Active Download")
-
     except Exception as e:
         logging.error(f"Error in rename_handler: {e}")
         await event.respond(f"An error occurred. Please try again later")
@@ -153,12 +147,16 @@ async def rename_handler(event):
 async def cancel_handler(event):
     try:
         task_id = event.data.decode().split('_')[1]
-        task_data = progress_manager.get_task(task_id)
+        task_data = event.client.task_data.get(task_id)
         if task_data:
-            progress_manager.set_cancel_flag(task_id, True)
-            await task_data["progress_bar"].stop("Canceled by User")
-            progress_manager.remove_task(task_id)
-            await event.answer("Upload Canceled")
+            task_data["cancel_flag"] = True
+            event.client.task_data[task_id] = task_data
+            progress_bar = task_data.get("progress_bar")
+            if progress_bar:
+                await progress_bar.stop("Cancelled by User")
+            else:
+                logging.warning(f"No progress bar found for task_id: {task_id}")
+            await event.answer("Upload Cancelled")
         else:
             await event.answer("No active download to cancel.")
     except Exception as e:
@@ -167,9 +165,15 @@ async def cancel_handler(event):
 
 async def rename_process(event):
     try:
-        task_id, task_data = progress_manager.get_task_by_status("rename_requested")
         user_id = event.sender_id
-        if task_id and event.sender_id == user_id:
+        matching_task = None
+        for task_id, task_data in event.client.task_data.items():
+            if task_data.get("status") == "rename_requested" and event.sender_id == user_id:
+                matching_task = (task_id, task_data)
+                break
+
+        if matching_task:
+            task_id, task_data = matching_task
             user_settings = get_user_settings(user_id)
             user_prefix = user_settings.get("prefix", DEFAULT_PREFIX)
 
@@ -180,9 +184,12 @@ async def rename_process(event):
             mime_type = task_data["mime_type"]
             await event.delete()
             message = await event.respond(f"Your new File name is: {user_prefix}{new_file_name}{file_extension}")
-            progress_manager.set_message_id(task_id, message.id)
+            task_data["message_id"] = message.id
+            task_data["status"] = "default"
+            event.client.task_data[task_id] = task_data
             await download_and_upload(event, url, f"{user_prefix}{new_file_name}{file_extension}", file_size, mime_type, task_id, file_extension, event, user_id)
-            return
+        else:
+            await event.respond("No active rename request found.")
     except Exception as e:
         logging.error(f"Error in rename_process: {e}")
         await event.respond(f"An error occurred. Please try again later")
