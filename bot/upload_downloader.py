@@ -9,10 +9,11 @@ import magic
 from telethon import types
 from telethon.errors import FloodWaitError
 from telethon.tl.functions.messages import SendMediaRequest
-from telethon.tl.types import InputMediaUploadedDocument, DocumentAttributeFilename
+from telethon.tl.types import InputMediaUploadedDocument, DocumentAttributeFilename, InputMediaUploadedPhoto
 
 from bot.config import MAX_RETRIES, RETRY_DELAY, CHUNK_SIZE, MAX_FILE_PARTS
 from bot.progress import ProgressBar
+from bot.utils import upload_thumb
 
 async def download_and_upload(event, url, file_name, file_size, mime_type, task_id, file_extension, current_event, user_id, progress_manager):
     temp_file_path = f"temp_{task_id}"
@@ -99,6 +100,8 @@ async def upload_file(event, temp_file_path, file_name, file_size, mime_type, ta
                 upload_chunk_size = math.ceil(file_size / MAX_FILE_PARTS)
                 logging.warning(f"Reducing upload chunk size to {upload_chunk_size / (1024*1024):.2f} MB due to excessive parts {parts}")
 
+            thumb = await upload_thumb(current_event, user_id)
+
             file = await event.client.upload_file(
                 f,
                 file_name=file_name,
@@ -109,10 +112,12 @@ async def upload_file(event, temp_file_path, file_name, file_size, mime_type, ta
             upload_speed = file_size / elapsed_upload_time if elapsed_upload_time > 0 else 0
             await progress_bar.update_progress(1, upload_speed=upload_speed)
 
+
             media = InputMediaUploadedDocument(
                 file=file,
                 mime_type=mime_type,
-                attributes=[DocumentAttributeFilename(file_name)]
+                attributes=[DocumentAttributeFilename(file_name)],
+                thumb = thumb
             )
 
             await event.client(SendMediaRequest(
