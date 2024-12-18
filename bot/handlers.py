@@ -58,7 +58,7 @@ async def url_processing(event):
                     "file_size": file_size,
                     "url": url,
                     "mime_type": mime_type,
-                    "cancel_flag": False
+                     "cancel_flag": False
                 }
                 progress_manager.add_task(task_id, task_data)
                 logging.info(f"URL Processing - Task added: {progress_manager.progress_messages}")
@@ -85,7 +85,7 @@ async def default_file_handler(event):
     task_data = progress_manager.get_task(task_id)
 
     if task_data:
-        # Use asyncio.create_task to run the download and upload in the background
+        # Use asyncio.create_task to run download_and_upload in the background
         asyncio.create_task(download_and_upload_in_background(event, task_data, user_id))
     else:
         await event.answer("No Active Download")
@@ -108,9 +108,19 @@ async def download_and_upload_in_background(event, task_data, user_id):
 
         file_name = f"{user_prefix}{file_name}{file_extension}"
 
-        # Send a message to indicate that the download and upload have started
-        message = await event.respond(f"Starting download and upload of {file_name}...")
-        progress_manager.update_task_status(task_data['task_id'], "message_id", message.id)
+        # Get the existing message or send a new one
+        message = None
+        message_id = task_data.get("message_id")
+        if message_id:
+            try:
+                message = await event.client.get_messages(event.chat_id, ids=message_id)
+            except Exception as e:
+                logging.error(f"Error retrieving existing message: {e}")
+
+        if not message:
+            message = await event.respond(f"Starting download and upload of {file_name}...")
+            progress_manager.set_message_id(task_id, message.id) # Update the task data with the message_id
+            task_data["message_id"] = message.id # Update the task data with the message_id
 
         # Create and use a new instance of ProgressBar for each task
         progress_bar = ProgressBar(file_size, "Processing", event.client, event, task_id, file_name, file_size)
