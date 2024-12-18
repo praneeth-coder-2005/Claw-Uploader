@@ -6,9 +6,11 @@ from telethon.errors import FloodWaitError
 
 from bot.config import API_ID, API_HASH, BOT_TOKEN
 from bot.handlers import url_processing, default_file_handler, rename_handler, cancel_handler, rename_process
+from bot.progress_manager import ProgressManager
 
 # Initialize the bot
 bot = TelegramClient('bot', API_ID, API_HASH)
+progress_manager = ProgressManager()
 
 # Handlers
 async def start_handler(event):
@@ -37,17 +39,17 @@ async def help_handler(event):
     )
 
 # Register handlers
-def register_handlers(bot):
+def register_handlers(bot, progress_manager):
     bot.add_event_handler(start_handler, events.NewMessage(pattern='/start'))
     bot.add_event_handler(help_handler, events.NewMessage(pattern='/help'))
-    bot.add_event_handler(url_processing, events.NewMessage)
-    bot.add_event_handler(rename_process, events.NewMessage)
-    bot.add_event_handler(default_file_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('default_')))
-    bot.add_event_handler(rename_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('rename_')))
-    bot.add_event_handler(cancel_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('cancel_')))
+    bot.add_event_handler(url_processing, events.NewMessage(progress_manager=progress_manager))
+    bot.add_event_handler(rename_process, events.NewMessage(progress_manager=progress_manager))
+    bot.add_event_handler(default_file_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('default_'), progress_manager=progress_manager))
+    bot.add_event_handler(rename_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('rename_'), progress_manager=progress_manager))
+    bot.add_event_handler(cancel_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('cancel_'), progress_manager=progress_manager))
 
 async def main():
-    register_handlers(bot) # Register handlers
+    register_handlers(bot, progress_manager) # Register handlers
     await bot.start(bot_token=BOT_TOKEN)
     print("Bot has started successfully and is now running...")
     await bot.run_until_disconnected()
