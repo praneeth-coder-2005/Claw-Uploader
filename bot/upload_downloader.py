@@ -1,5 +1,3 @@
-# bot/upload_downloader.py
-
 import asyncio
 import logging
 import os
@@ -32,7 +30,9 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
             return
 
         message_id = task_data.get("message_id")
-        progress_bar = task_data["progress_bar"]  # Retrieve the progress_bar from task_data
+        progress_bar = task_data["progress_bar"]
+        progress_bar.client = event.client
+        progress_bar.event = current_event
         if message_id:
             progress_bar.set_message_id(message_id)
 
@@ -57,7 +57,7 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                                 if elapsed_time > 0:
                                     download_speed = downloaded_size / elapsed_time
                                 await progress_bar.update_progress(downloaded_size / file_size, download_speed=download_speed)
-                        break  # Break out of the retry loop if successful
+                        break
             except aiohttp.ClientError as e:
                 logging.error(f"Download error (attempt {attempt + 1}/{MAX_RETRIES}) from {url}: {e}, url:{url}")
                 if attempt < MAX_RETRIES - 1:
@@ -78,6 +78,7 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
             await current_event.respond(
                 f"Error: Download incomplete (Size mismatch) file_size is: {file_size} and downloaded size is: {downloaded_size}")
             logging.error(f"Download incomplete for {url}: expected {file_size} bytes, got {downloaded_size} bytes")
+
     except Exception as e:
         logging.error(f"An unexpected error occurred in download_and_upload: {e}, url: {url}")
         await current_event.respond(f"An error occurred: {e}")
@@ -107,6 +108,7 @@ async def upload_file(event, temp_file_path, file_name, file_size, mime_type, ta
                 file_name=file_name,
                 progress_callback=lambda current, total: progress_bar.update_progress(current / total)
             )
+
             uploaded_size = 0
             elapsed_upload_time = time.time() - start_upload_time
             upload_speed = file_size / elapsed_upload_time if elapsed_upload_time > 0 else 0
@@ -126,12 +128,12 @@ async def upload_file(event, temp_file_path, file_name, file_size, mime_type, ta
                     attributes=[DocumentAttributeFilename(file_name)]
                 )
 
-                await event.client(SendMediaRequest(
-                    peer=await event.client.get_input_entity(current_event.chat_id),
-                    media=media,
-                    message=f"File Name: {file_name}{file_extension}",
-                ))
-                await progress_bar.stop("Upload Complete")
+            await event.client(SendMediaRequest(
+                peer=await event.client.get_input_entity(current_event.chat_id),
+                media=media,
+                message=f"File Name: {file_name}{file_extension}",
+            ))
+            await progress_bar.stop("Upload Complete")
 
     except FloodWaitError as e:
         logging.warning(f"Flood wait error during upload: {e}")
