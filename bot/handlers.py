@@ -13,7 +13,7 @@ from telethon.tl.types import InputMediaUploadedDocument, DocumentAttributeFilen
 from telethon.errors import FloodWaitError
 
 from bot.config import DEFAULT_PREFIX, MAX_FILE_SIZE, MAX_RETRIES, RETRY_DELAY, CHUNK_SIZE, MAX_FILE_PARTS
-from bot.utils import upload_thumb, get_file_name_extension, extract_filename_from_content_disposition
+from bot.utils import get_file_name_extension, extract_filename_from_content_disposition
 from bot.progress import ProgressBar
 from bot.upload_downloader import download_and_upload
 
@@ -31,7 +31,7 @@ async def url_processing(event):
                 file_size = int(response.headers.get('Content-Length', 0))
 
                 if file_size > MAX_FILE_SIZE:
-                    await event.respond('⚠️ File size exceeds the limit of 2GB.')
+                    await event.respond('File size exceeds the limit of 2GB.')
                     return
 
                 mime_type = response.headers.get('Content-Type', "application/octet-stream")
@@ -53,18 +53,17 @@ async def url_processing(event):
                     "url": url,
                     "mime_type": mime_type,
                     "cancel_flag": False,
-                    "message_id": None,
-                    "progress_bar": None
+                    "message_id": None
                 }
 
                 event.client.task_data = {task_id: task_data}
 
                 logging.info(f"URL Processing - Task data stored: {event.client.task_data}")
-                buttons = [[Button.inline("✔️ Default", data=f"default_{task_id}"),
-                            Button.inline("✏️ Rename", data=f"rename_{task_id}")]]
+                buttons = [[Button.inline("Default", data=f"default_{task_id}"),
+                            Button.inline("Rename", data=f"rename_{task_id}")]]
 
                 message = await event.respond(
-                    f"**File Detected!**\n\n**Original File Name:** {file_name}{file_extension}\n**File Size:** {file_size / (1024 * 1024):.2f} MB\n\nWhat do you want to do?",
+                    f"Original File Name: {file_name}{file_extension}\nFile Size: {file_size / (1024 * 1024):.2f} MB\n\nChoose an option:",
                     buttons=buttons
                 )
 
@@ -73,14 +72,14 @@ async def url_processing(event):
 
     except aiohttp.ClientError as e:
         logging.error(f"AIOHTTP Error fetching URL {url}: {e}, url: {url}")
-        await event.respond(f"❌ Error fetching URL: {e}")
+        await event.respond(f"Error fetching URL: {e}")
     except Exception as e:
         logging.error(f"An unexpected error occurred while processing URL {url}: {e}, url: {url}")
-        await event.respond(f"❌ An error occurred: {e}")
+        await event.respond(f"An error occurred: {e}")
 
 async def default_file_handler(event):
     task_id = event.data.decode().split('_')[1]
-    user_id = event.sender_id
+    user_id = event.sender_id  # Get user_id before checking task_data
 
     logging.info(f"Default File Handler - Task ID: {task_id}")
     logging.info(f"Default File Handler - Current tasks: {event.client.task_data}")
@@ -88,10 +87,10 @@ async def default_file_handler(event):
     task_data = event.client.task_data.get(task_id)
 
     if task_data:
-        # Use asyncio.create_task to run download_and_upload_in_background in the background
+        # Download and upload in the background
         asyncio.create_task(download_and_upload_in_background(event, task_data, user_id))
     else:
-        await event.answer("⚠️ No Active Download")
+        await event.answer("No Active Download")
 
 async def download_and_upload_in_background(event, task_data, user_id):
     try:
@@ -133,9 +132,9 @@ async def rename_handler(event):
         if task_data:
             task_data["status"] = "rename_requested"
             event.client.task_data[task_id] = task_data
-            await event.answer(message='✏️ Send me the new file name:')
+            await event.answer(message='Send your desired file name (without extension):')
         else:
-            await event.answer("⚠️ No Active Download")
+            await event.answer("No Active Download")
     except Exception as e:
         logging.error(f"Error in rename_handler: {e}")
         await event.respond(f"An error occurred. Please try again later.")
@@ -149,15 +148,15 @@ async def cancel_handler(event):
             event.client.task_data[task_id] = task_data
             progress_bar = task_data.get("progress_bar")
             if progress_bar:
-                await progress_bar.stop("❌ Canceled by User")
+                await progress_bar.stop("Cancelled by User")
             else:
                 logging.warning(f"No progress bar found for task_id: {task_id}")
-            await event.answer("✅ Upload Canceled")
+            await event.answer("Upload Canceled")
         else:
-            await event.answer("⚠️ No active download to cancel.")
+            await event.answer("No active download to cancel.")
     except Exception as e:
         logging.error(f"Error in cancel_handler: {e}")
-        await event.respond(f"An error occurred. Please try again later.")
+        await event.respond(f"An error occurred. Please try again later")
 
 async def rename_process(event):
     try:
@@ -182,7 +181,7 @@ async def rename_process(event):
             # Prepend default prefix to the new file name
             new_file_name = f"{DEFAULT_PREFIX}{new_file_name}{file_extension}"
 
-            message = await event.respond(f"📝 Your new file name is: {new_file_name}")
+            message = await event.respond(f"Your new file name is: {new_file_name}")
             task_data["message_id"] = message.id
             task_data["status"] = "default"
             task_data["file_name"] = new_file_name  # Update the file_name in task_data
@@ -192,4 +191,4 @@ async def rename_process(event):
             await event.respond("No active rename request found.")
     except Exception as e:
         logging.error(f"Error in rename_process: {e}")
-        await event.respond(f"An error occurred. Please try again later.")
+        await event.respond(f"An error occurred. Please try again later")
