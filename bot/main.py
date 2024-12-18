@@ -22,7 +22,23 @@ from bot.settings_handlers import (
 # Initialize the bot
 bot = TelegramClient("bot", API_ID, API_HASH)
 
-# ... (Other handlers: start_handler, help_handler, settings_handler are the same) ...
+# Handlers
+async def start_handler(event):
+    user = await event.get_sender()
+    await event.respond(
+        f"Hello {user.first_name}! 👋\n"
+        f"I'm ready to upload files for you (up to 2GB).\n"
+        f"Just send me a URL, and I'll handle the rest.\n\n"
+        f"Available Commands:\n"
+        f"/start - Start the bot\n"
+        f"/help - Show this message\n"
+        f"/settings - Configure custom settings"
+    )
+
+async def help_handler(event):
+    await event.respond(
+        "Available Commands:\n/start - Start the bot\n/help - Show this message\n/settings - Configure custom settings"
+    )
 
 async def handle_settings_input(event):
     user_id = event.sender_id
@@ -103,6 +119,7 @@ def register_handlers(bot):
         done_settings_handler, events.CallbackQuery(data=b"done_settings")
     )
     bot.add_event_handler(url_processing, events.NewMessage)
+    bot.add_event_handler(rename_process, events.NewMessage)
     bot.add_event_handler(
         default_file_handler,
         events.CallbackQuery(data=lambda data: data.decode().startswith("default_")),
@@ -115,12 +132,11 @@ def register_handlers(bot):
         cancel_handler,
         events.CallbackQuery(data=lambda data: data.decode().startswith("cancel_")),
     )
-    bot.add_event_handler(rename_process, events.NewMessage)
 
 async def main():
     register_handlers(bot)  # Register handlers
     await bot.start(bot_token=BOT_TOKEN)
-    print("Bot has started.")  # Add a print statement here
+    print("Bot has started.")
     await bot.run_until_disconnected()
 
 if __name__ == "__main__":
