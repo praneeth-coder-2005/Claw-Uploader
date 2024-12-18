@@ -160,7 +160,6 @@ async def rename_process(event, progress_manager):
         user_id = event.sender_id
         task_id, task_data = progress_manager.get_task_by_status("rename_requested")
 
-
         if not task_id:
             return
 
