@@ -12,7 +12,6 @@ from telethon.tl.functions.messages import SendMediaRequest
 from telethon.tl.types import InputMediaUploadedDocument, DocumentAttributeFilename
 
 from bot.config import MAX_RETRIES, RETRY_DELAY, CHUNK_SIZE, MAX_FILE_PARTS
-from bot.utils import upload_thumb
 from bot.progress import ProgressBar
 
 async def download_and_upload(event, url, file_name, file_size, mime_type, task_id, file_extension, current_event, user_id):
@@ -101,38 +100,26 @@ async def upload_file(event, temp_file_path, file_name, file_size, mime_type, ta
                 upload_chunk_size = math.ceil(file_size / MAX_FILE_PARTS)
                 logging.warning(f"Reducing upload chunk size to {upload_chunk_size / (1024*1024):.2f} MB due to excessive parts {parts}")
 
-            thumb_id = await upload_thumb(event, user_id)
-
             file = await event.client.upload_file(
                 f,
                 file_name=file_name,
                 progress_callback=lambda current, total: progress_bar.update_progress(current / total)
             )
 
-            uploaded_size = 0
             elapsed_upload_time = time.time() - start_upload_time
             upload_speed = file_size / elapsed_upload_time if elapsed_upload_time > 0 else 0
             await progress_bar.update_progress(1, upload_speed=upload_speed)
 
-            # Send file with thumbnail if available
-            if thumb_id:
-                media = InputMediaUploadedDocument(
-                    file=file,
-                    mime_type=mime_type,
-                    attributes=[DocumentAttributeFilename(file_name)],
-                    thumb=types.InputFile(id=thumb_id, parts=1, name="thumb.jpg", md5_checksum="")
-                )
-            else:
-                media = InputMediaUploadedDocument(
-                    file=file,
-                    mime_type=mime_type,
-                    attributes=[DocumentAttributeFilename(file_name)]
-                )
+            media = InputMediaUploadedDocument(
+                file=file,
+                mime_type=mime_type,
+                attributes=[DocumentAttributeFilename(file_name)]
+            )
 
             await event.client(SendMediaRequest(
                 peer=await event.client.get_input_entity(current_event.chat_id),
                 media=media,
-                message=f"File Name: {file_name}{file_extension}",
+                message=f"File Name: {file_name}",
             ))
             await progress_bar.stop("Upload Complete")
 
