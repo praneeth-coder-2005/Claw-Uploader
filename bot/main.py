@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from telethon import TelegramClient, events
+from telethon import TelegramClient, events, Button
 from telethon.errors import FloodWaitError
 
 from bot.config import API_ID, API_HASH, BOT_TOKEN
@@ -14,17 +14,13 @@ bot = TelegramClient('bot', API_ID, API_HASH)
 async def start_handler(event):
     user = await event.get_sender()
     await event.respond(
-        f"👋 Hello {user.first_name}! I'm a URL Uploader bot.\n\n"
-        f"**Here's what I can do:**\n\n"
-        f"1. Send me a direct download URL, and I'll upload it to Telegram.\n"
-        f"2. The maximum file size I can handle is 2GB.\n"
-        f"3. You can choose to upload with the default filename or rename it.\n"
-        f"4. You can cancel the upload at any time.\n\n"
-        f"**Commands:**\n"
+        f"Hello {user.first_name}! 👋\n"
+        f"I'm ready to upload files for you (up to 2GB).\n"
+        f"Just send me a URL, and I'll handle the rest.\n\n"
+        f"Available Commands:\n"
         f"/start - Start the bot\n"
-        f"/help - Show this help message\n"
-        f"/cancel - Cancel the current operation\n\n"
-        f"Just send me a URL to get started!"
+        f"/help - Show this message\n"
+        f"/cancel - Cancel the current operation\n"
     )
 
 async def help_handler(event):
@@ -36,8 +32,8 @@ async def help_handler(event):
         "4. You can use the /cancel command to stop the process.\n\n"
         "**Available Commands:**\n"
         f"/start - Start the bot\n"
-        f"/help - Show this help message\n"
-        f"/cancel - Cancel the current operation\n"
+        f"/help - Show this message\n"
+        f"/cancel - Cancel the current operation"
     )
 
 # Register handlers
@@ -51,7 +47,7 @@ def register_handlers(bot):
     bot.add_event_handler(cancel_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('cancel_')))
 
 async def main():
-    register_handlers(bot)
+    register_handlers(bot) # Register handlers
     await bot.start(bot_token=BOT_TOKEN)
     print("Bot has started successfully and is now running...")
     await bot.run_until_disconnected()
