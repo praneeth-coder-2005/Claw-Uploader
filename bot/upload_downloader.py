@@ -40,22 +40,22 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
         progress_bar = ProgressBar(file_size, "Processing", event.client, current_event, task_id, file_name, file_size)
         if message_id:
             progress_bar.set_message_id(message_id)
-        
+
         # Update progress_manager.progress_messages directly:
         task_data["progress_bar"] = progress_bar
         progress_manager.progress_messages[task_id] = task_data
-        
+
         for attempt in range(MAX_RETRIES):
             try:
                 async with aiohttp.ClientSession() as session:
-                     async with session.get(url, timeout=None) as response:
+                    async with session.get(url, timeout=None) as response:
                         response.raise_for_status()
-                        
+
                         with open(temp_file_path, "wb") as temp_file:
                             while True:
                                 if progress_manager.get_cancel_flag(task_id):
                                     return
-                                
+
                                 chunk = await response.content.readany()
                                 if not chunk:
                                     break
@@ -76,7 +76,7 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                     await current_event.respond(f"Download Error: {e}. Maximum retries reached.")
                     return
             except Exception as e:
-                logging.error(f"An exception occurred in downlaod_and_upload while downloading file : {e}, url: {url}")
+                logging.error(f"An exception occurred in download_and_upload while downloading file : {e}, url: {url}")
                 await current_event.respond(f"An error occurred : {e}")
                 return
         if downloaded_size == file_size:
@@ -92,14 +92,14 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                 if parts > MAX_FILE_PARTS:
                     upload_chunk_size = math.ceil(file_size / MAX_FILE_PARTS)
                     logging.warning(f"Reducing upload chunk size to {upload_chunk_size / (1024*1024):.2f} MB due to excessive parts {parts}")
-                
+
                 thumb_id = await upload_thumb(event, temp_file_path, user_id)
 
                 file = await event.client.upload_file(
                     f,
                     file_name=file_name,
-                     progress_callback=lambda current, total: asyncio.create_task(
-                            progress_bar.update_progress(current / total))
+                    progress_callback=lambda current, total: asyncio.create_task(
+                        progress_bar.update_progress(current / total))
                     )
                 uploaded_size = 0
                 elapsed_upload_time = time.time() - start_upload_time
@@ -120,7 +120,7 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                             mime_type=mime_type,
                             attributes=[DocumentAttributeFilename(file_name)]
                         )
-                    
+
                     await event.client(SendMediaRequest(
                         peer=await event.client.get_input_entity(current_event.chat_id),
                         media=media,
@@ -133,18 +133,17 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
                     await download_and_upload(event, url, file_name, file_size, mime_type, task_id, file_extension, current_event, user_id)
                     return
                 except Exception as e:
-                      logging.error(f"An error occurred during upload: {e}, url: {url}")
-                      await current_event.respond(f"An error occurred during upload: {e}")
-                      return
-
+                    logging.error(f"An error occurred during upload: {e}, url: {url}")
+                    await current_event.respond(f"An error occurred during upload: {e}")
+                    return
         else:
-             await current_event.respond(
+            await current_event.respond(
                 f"Error: Download incomplete (Size mismatch) file_size is: {file_size} and downloaded size is: {downloaded_size}")
 
     except Exception as e:
-        logging.error(f"An unexpected error occurred in downlaod_and_upload: {e}, url: {url}")
+        logging.error(f"An unexpected error occurred in download_and_upload: {e}, url: {url}")
         await current_event.respond(f"An error occurred: {e}")
     finally:
-       progress_manager.remove_task(task_id)
-       if os.path.exists(temp_file_path):
+        progress_manager.remove_task(task_id)
+        if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
