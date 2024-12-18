@@ -21,9 +21,7 @@ from bot.settings_handlers import (
 
 # Initialize the bot
 bot = TelegramClient("bot", API_ID, API_HASH)
-
-# Initialize task_data
-bot.task_data = {}  # Add this line to initialize the dictionary
+bot.task_data = {}
 
 # Handlers
 async def start_handler(event):
