@@ -180,7 +180,7 @@ async def rename_process(event):
             user_settings = get_user_settings(user_id)
             user_prefix = user_settings.get("prefix", DEFAULT_PREFIX)
 
-            new_file_name = event.text
+            new_file_name = event.text.strip()
             file_extension = task_data["file_extension"]
             file_size = task_data["file_size"]
             url = task_data["url"]
@@ -194,7 +194,7 @@ async def rename_process(event):
             message = await event.respond(f"Your new File name is: {new_file_name}{file_extension}")
             task_data["message_id"] = message.id
             task_data["status"] = "default"
-            task_data["file_name"] = new_file_name
+            task_data["file_name"] = new_file_name  # Update the file_name in task_data
             event.client.task_data[task_id] = task_data
             asyncio.create_task(download_and_upload_in_background(event, task_data, user_id))
         else:
