@@ -11,8 +11,7 @@ from telethon.errors import FloodWaitError
 from telethon.tl.functions.messages import SendMediaRequest
 from telethon.tl.types import InputMediaUploadedDocument, DocumentAttributeFilename, InputMediaUploadedPhoto, InputFile
 from telethon.tl.functions.upload import GetFileRequest
-from telethon.tl.types import InputFile, InputMediaUploadedPhoto
-
+from telethon.tl.types import InputFile, InputMediaUploadedPhoto, InputMedia
 
 from bot.config import MAX_RETRIES, RETRY_DELAY, CHUNK_SIZE, MAX_FILE_PARTS
 from bot.progress import ProgressBar
@@ -129,13 +128,11 @@ async def upload_file(event, temp_file_path, file_name, file_size, mime_type, ta
             upload_speed = file_size / elapsed_upload_time if elapsed_upload_time > 0 else 0
             await progress_bar.update_progress(1, upload_speed=upload_speed)
 
-
-
             media = InputMediaUploadedDocument(
                 file=file,
                 mime_type=mime_type,
                 attributes=[DocumentAttributeFilename(file_name)],
-                thumb = thumb if thumb else None
+                thumb=thumb if isinstance(thumb, InputMedia) else None
             )
 
 
