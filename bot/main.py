@@ -6,7 +6,7 @@ from telethon.errors import FloodWaitError
 
 from bot.config import API_ID, API_HASH, BOT_TOKEN
 from bot.handlers import url_processing, default_file_handler, rename_handler, cancel_handler, rename_process
-from bot.services.progress_manager import ProgressManager  # Corrected import path
+from bot.services.progress_manager import ProgressManager
 
 # Initialize the bot
 bot = TelegramClient('bot', API_ID, API_HASH)
@@ -42,11 +42,21 @@ async def help_handler(event):
 def register_handlers(bot, progress_manager):
     bot.add_event_handler(start_handler, events.NewMessage(pattern='/start'))
     bot.add_event_handler(help_handler, events.NewMessage(pattern='/help'))
-    bot.add_event_handler(url_processing, events.NewMessage(progress_manager=progress_manager))
-    bot.add_event_handler(rename_process, events.NewMessage(progress_manager=progress_manager))
-    bot.add_event_handler(default_file_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('default_'), progress_manager=progress_manager))
-    bot.add_event_handler(rename_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('rename_'), progress_manager=progress_manager))
-    bot.add_event_handler(cancel_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('cancel_'), progress_manager=progress_manager))
+    bot.add_event_handler(
+        lambda event: url_processing(event, progress_manager), events.NewMessage
+    )
+    bot.add_event_handler(
+        lambda event: rename_process(event, progress_manager), events.NewMessage
+    )
+    bot.add_event_handler(
+        lambda event: default_file_handler(event, progress_manager), events.CallbackQuery(data=lambda data: data.decode().startswith('default_'))
+    )
+    bot.add_event_handler(
+        lambda event: rename_handler(event, progress_manager), events.CallbackQuery(data=lambda data: data.decode().startswith('rename_'))
+    )
+    bot.add_event_handler(
+        lambda event: cancel_handler(event, progress_manager), events.CallbackQuery(data=lambda data: data.decode().startswith('cancel_'))
+    )
 
 async def main():
     register_handlers(bot, progress_manager) # Register handlers
