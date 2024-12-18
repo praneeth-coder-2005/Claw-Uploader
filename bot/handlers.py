@@ -52,12 +52,13 @@ async def url_processing(event):
                 task_id = str(uuid.uuid4())
                 logging.info(f"URL Processing - New task ID: {task_id}")  # Log new task ID
                 task_data = {
+                    "task_id": task_id,  # Store task_id in task_data
                     "file_name": file_name,
                     "file_extension": file_extension,
                     "file_size": file_size,
                     "url": url,
                     "mime_type": mime_type,
-                     "cancel_flag": False
+                    "cancel_flag": False
                 }
                 progress_manager.add_task(task_id, task_data)
                 logging.info(f"URL Processing - Task added: {progress_manager.progress_messages}")
@@ -76,7 +77,7 @@ async def url_processing(event):
 
 async def default_file_handler(event):
     task_id = event.data.decode().split('_')[1]
-    user_id = event.sender_id  # Get user_id before checking task_data
+    user_id = event.sender_id
 
     logging.info(f"Default File Handler - Task ID: {task_id}")
     logging.info(f"Default File Handler - Current tasks: {progress_manager.progress_messages}")
@@ -84,7 +85,7 @@ async def default_file_handler(event):
     task_data = progress_manager.get_task(task_id)
 
     if task_data:
-        # Download and upload in the background
+        # Use asyncio.create_task to run the download and upload in the background
         asyncio.create_task(download_and_upload_in_background(event, task_data, user_id))
     else:
         await event.answer("No Active Download")
@@ -99,6 +100,7 @@ async def download_and_upload_in_background(event, task_data, user_id):
         file_size = task_data["file_size"]
         url = task_data["url"]
         mime_type = task_data["mime_type"]
+        task_id = task_data["task_id"]
 
         # Apply rename rules
         for rule in user_settings["rename_rules"]:
@@ -106,28 +108,19 @@ async def download_and_upload_in_background(event, task_data, user_id):
 
         file_name = f"{user_prefix}{file_name}{file_extension}"
 
-        # Get the existing message or send a new one
-        message = None
-        message_id = task_data.get("message_id")
-        if message_id:
-            try:
-                message = await event.client.get_messages(event.chat_id, ids=message_id)
-            except Exception as e:
-                logging.error(f"Error retrieving existing message: {e}")
-
-        if not message:
-            message = await event.respond(f"Starting download and upload of {file_name}...")
-            progress_manager.update_task_status(task_data['task_id'], "message_id", message.id)
+        # Send a message to indicate that the download and upload have started
+        message = await event.respond(f"Starting download and upload of {file_name}...")
+        progress_manager.update_task_status(task_data['task_id'], "message_id", message.id)
 
         # Create and use a new instance of ProgressBar for each task
-        progress_bar = ProgressBar(file_size, "Processing", event.client, event, task_data['task_id'], file_name, file_size)
+        progress_bar = ProgressBar(file_size, "Processing", event.client, event, task_id, file_name, file_size)
         task_data["progress_bar"] = progress_bar
 
         # Update task data with progress bar
-        progress_manager.update_task(task_data['task_id'], task_data)
+        progress_manager.update_task(task_id, task_data)
 
         # Perform the download and upload
-        await download_and_upload(event, url, file_name, file_size, mime_type, task_data['task_id'], file_extension, event, user_id)
+        await download_and_upload(event, url, file_name, file_size, mime_type, task_id, file_extension, event, user_id)
 
     except Exception as e:
         logging.error(f"Error in background download and upload: {e}")
