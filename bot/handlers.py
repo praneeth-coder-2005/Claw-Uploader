@@ -17,7 +17,7 @@ from bot.utils import get_file_name_extension, extract_filename_from_content_dis
 from bot.progress import ProgressBar
 from bot.upload_downloader import download_and_upload
 
-async def url_processing(event):
+async def url_processing(event, progress_manager):
     try:
         url = event.text.strip()
         if not url.startswith("http://") and not url.startswith("https://"):
@@ -55,10 +55,10 @@ async def url_processing(event):
                     "cancel_flag": False,
                     "message_id": None
                 }
+                
+                progress_manager.add_task(task_id, task_data)
 
-                event.client.task_data = {task_id: task_data}
-
-                logging.info(f"URL Processing - Task data stored: {event.client.task_data}")
+                logging.info(f"URL Processing - Task data stored: {progress_manager.progress_messages}")
                 buttons = [[Button.inline("Default", data=f"default_{task_id}"),
                             Button.inline("Rename", data=f"rename_{task_id}")]]
 
@@ -68,7 +68,7 @@ async def url_processing(event):
                 )
 
                 task_data["message_id"] = message.id
-                event.client.task_data[task_id] = task_data
+                progress_manager.update_task(task_id,task_data)
 
     except aiohttp.ClientError as e:
         logging.error(f"AIOHTTP Error fetching URL {url}: {e}, url: {url}")
@@ -77,22 +77,22 @@ async def url_processing(event):
         logging.error(f"An unexpected error occurred while processing URL {url}: {e}, url: {url}")
         await event.respond(f"An error occurred: {e}")
 
-async def default_file_handler(event):
+async def default_file_handler(event, progress_manager):
     task_id = event.data.decode().split('_')[1]
     user_id = event.sender_id  # Get user_id before checking task_data
 
     logging.info(f"Default File Handler - Task ID: {task_id}")
-    logging.info(f"Default File Handler - Current tasks: {event.client.task_data}")
+    logging.info(f"Default File Handler - Current tasks: {progress_manager.progress_messages}")
 
-    task_data = event.client.task_data.get(task_id)
+    task_data = progress_manager.get_task(task_id)
 
     if task_data:
         # Download and upload in the background
-        asyncio.create_task(download_and_upload_in_background(event, task_data, user_id))
+        asyncio.create_task(download_and_upload_in_background(event, task_data, user_id, progress_manager))
     else:
         await event.answer("No Active Download")
 
-async def download_and_upload_in_background(event, task_data, user_id):
+async def download_and_upload_in_background(event, task_data, user_id, progress_manager):
     try:
         file_name = task_data["file_name"]
         file_extension = task_data["file_extension"]
@@ -113,25 +113,23 @@ async def download_and_upload_in_background(event, task_data, user_id):
 
         progress_bar = ProgressBar(file_size, "Processing", event.client, event, task_id, file_name, file_size)
         task_data["progress_bar"] = progress_bar
-        event.client.task_data[task_id] = task_data
+        progress_manager.update_task(task_id, task_data)
 
-        await download_and_upload(event, url, file_name, file_size, task_data["mime_type"], task_id, file_extension, event, user_id)
+        await download_and_upload(event, url, file_name, file_size, task_data["mime_type"], task_id, file_extension, event, user_id, progress_manager)
 
     except Exception as e:
         logging.error(f"Error in background download and upload: {e}")
         await event.respond(f"An error occurred during the download and upload process.")
 
     finally:
-        if task_id in event.client.task_data:
-            del event.client.task_data[task_id]
+        progress_manager.remove_task(task_id)
 
-async def rename_handler(event):
+async def rename_handler(event, progress_manager):
     try:
         task_id = event.data.decode().split('_')[1]
-        task_data = event.client.task_data.get(task_id)
+        task_data = progress_manager.get_task(task_id)
         if task_data:
-            task_data["status"] = "rename_requested"
-            event.client.task_data[task_id] = task_data
+            progress_manager.update_task_status(task_id,"rename_requested")
             await event.answer(message='Send your desired file name (without extension):')
         else:
             await event.answer("No Active Download")
@@ -139,13 +137,12 @@ async def rename_handler(event):
         logging.error(f"Error in rename_handler: {e}")
         await event.respond(f"An error occurred. Please try again later.")
 
-async def cancel_handler(event):
+async def cancel_handler(event, progress_manager):
     try:
         task_id = event.data.decode().split('_')[1]
-        task_data = event.client.task_data.get(task_id)
+        task_data = progress_manager.get_task(task_id)
         if task_data:
-            task_data["cancel_flag"] = True
-            event.client.task_data[task_id] = task_data
+            progress_manager.set_cancel_flag(task_id, True)
             progress_bar = task_data.get("progress_bar")
             if progress_bar:
                 await progress_bar.stop("Cancelled by User")
@@ -158,20 +155,16 @@ async def cancel_handler(event):
         logging.error(f"Error in cancel_handler: {e}")
         await event.respond(f"An error occurred. Please try again later")
 
-async def rename_process(event):
+async def rename_process(event, progress_manager):
     try:
         user_id = event.sender_id
-        task_id = None
-        for key, task in event.client.task_data.items():
-            if task.get("status") == "rename_requested" and event.sender_id == user_id:
-                task_id = key
-                break
+        task_id, task_data = progress_manager.get_task_by_status("rename_requested")
+
 
         if not task_id:
             return
 
-        task_data = event.client.task_data.get(task_id)
-        if task_data and task_data.get("status") == "rename_requested":
+        if task_data and task_data.get("status") == "rename_requested" and event.sender_id == user_id:
             new_file_name = event.text.strip()
             file_extension = task_data["file_extension"]
             file_size = task_data["file_size"]
@@ -185,8 +178,8 @@ async def rename_process(event):
             task_data["message_id"] = message.id
             task_data["status"] = "default"
             task_data["file_name"] = new_file_name  # Update the file_name in task_data
-            event.client.task_data[task_id] = task_data
-            asyncio.create_task(download_and_upload_in_background(event, task_data, user_id))
+            progress_manager.update_task(task_id,task_data)
+            asyncio.create_task(download_and_upload_in_background(event, task_data, user_id, progress_manager))
         else:
             await event.respond("No active rename request found.")
     except Exception as e:
