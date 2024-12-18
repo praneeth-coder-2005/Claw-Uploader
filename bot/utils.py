@@ -1,4 +1,3 @@
-# bot/utils.py
 import os
 import re
 from urllib.parse import urlparse, unquote
@@ -72,32 +71,11 @@ def set_user_setting(user_id, key, value):
     settings[user_id_str][key] = value
     save_settings(settings)
 
-async def upload_thumb(event, file_path, user_id):
-    try:
-        user_settings = get_user_settings(user_id)
-        thumbnail_id = user_settings.get("thumbnail")
+async def upload_thumb(event, user_id):
+    user_settings = get_user_settings(user_id)
+    thumbnail_id = user_settings.get("thumbnail")
 
-        if thumbnail_id:
-            return thumbnail_id
+    if thumbnail_id:
+        return thumbnail_id
 
-        thumbnail_url = DEFAULT_THUMBNAIL
-
-        async with aiohttp.ClientSession() as session:
-            async with session.get(thumbnail_url) as thumb_response:
-                if thumb_response.status == 200:
-                    thumb_data = await thumb_response.read()
-                    file = await event.client.upload_file(thumb_data, file_name="thumbnail.jpg")
-                    photo = await event.client(SendMediaRequest(
-                        peer=await event.client.get_input_entity(event.chat_id),
-                        media=InputMediaUploadedPhoto(file=file),
-                        message="",
-                        silent=True
-                    ))
-                    return photo.photo.id
-                else:
-                    logging.error(f"Error downloading thumbnail from {thumbnail_url}: Status {thumb_response.status}")
-                    return None
-
-    except Exception as e:
-        logging.error(f"Error uploading thumbnail: {e}")
-        return None
+    return None
