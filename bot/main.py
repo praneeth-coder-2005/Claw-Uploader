@@ -6,7 +6,7 @@ from telethon.errors import FloodWaitError
 
 from bot.config import API_ID, API_HASH, BOT_TOKEN
 from bot.handlers import url_processing, default_file_handler, rename_handler, cancel_handler, rename_process
-from bot.progress_manager import ProgressManager
+from bot.services.progress_manager import ProgressManager  # Corrected import path
 
 # Initialize the bot
 bot = TelegramClient('bot', API_ID, API_HASH)
