@@ -9,12 +9,36 @@ from telethon.errors import FloodWaitError
 from bot.config import API_ID, API_HASH, BOT_TOKEN, DEFAULT_PREFIX, DEFAULT_THUMBNAIL
 from bot.utils import get_user_settings, set_user_setting, upload_thumb, get_file_name_extension, extract_filename_from_content_disposition
 from bot.handlers import url_processing, default_file_handler, rename_handler, cancel_handler, rename_process
-from bot.settings_handlers import settings_handler, set_thumbnail_handler, set_prefix_handler, add_rename_rule_handler, remove_rename_rule_handler, remove_rule_callback_handler, done_settings_handler
+from bot.settings_handlers import (
+    settings_handler,
+    set_thumbnail_handler,
+    set_prefix_handler,
+    add_rename_rule_handler,
+    remove_rename_rule_handler,
+    remove_rule_callback_handler,
+    done_settings_handler,
+)
 
 # Initialize the bot
-bot = TelegramClient('bot', API_ID, API_HASH)
+bot = TelegramClient("bot", API_ID, API_HASH)
 
-# ... other handlers ...
+# Handlers
+async def start_handler(event):
+    user = await event.get_sender()
+    await event.respond(
+        f"Hello {user.first_name}! 👋\n"
+        f"I'm ready to upload files for you (up to 2GB).\n"
+        f"Just send me a URL, and I'll handle the rest.\n\n"
+        f"Available Commands:\n"
+        f"/start - Start the bot\n"
+        f"/help - Show this message\n"
+        f"/settings - Configure custom settings"
+    )
+
+async def help_handler(event):
+    await event.respond(
+        "Available Commands:\n/start - Start the bot\n/help - Show this message\n/settings - Configure custom settings"
+    )
 
 async def handle_settings_input(event):
     user_id = event.sender_id
@@ -26,9 +50,19 @@ async def handle_settings_input(event):
             if event.media:
                 try:
                     # Download and process the thumbnail sent by the user
-                    thumb_file = await event.client.download_media(event.media, file="bot/")
-                    file = await event.client.upload_file(thumb_file, file_name="thumbnail.jpg")
-                    photo = await event.client(SendMediaRequest(peer=await event.client.get_input_entity(event.chat_id),media=InputMediaUploadedPhoto(file=file),message="Thumbnail set!"))
+                    thumb_file = await event.client.download_media(
+                        event.media, file="bot/"
+                    )
+                    file = await event.client.upload_file(
+                        thumb_file, file_name="thumbnail.jpg"
+                    )
+                    photo = await event.client(
+                        SendMediaRequest(
+                            peer=await event.client.get_input_entity(event.chat_id),
+                            media=InputMediaUploadedPhoto(file=file),
+                            message="Thumbnail set!",
+                        )
+                    )
                     file_id = photo.photo.id
                     set_user_setting(user_id, "thumbnail", file_id)
                     await event.respond("Thumbnail updated!")
@@ -61,27 +95,51 @@ async def handle_settings_input(event):
 
 # Register handlers
 def register_handlers(bot):
-    bot.add_event_handler(start_handler, events.NewMessage(pattern='/start'))
-    bot.add_event_handler(help_handler, events.NewMessage(pattern='/help'))
-    bot.add_event_handler(settings_handler, events.NewMessage(pattern='/settings'))
+    bot.add_event_handler(start_handler, events.NewMessage(pattern="/start"))
+    bot.add_event_handler(help_handler, events.NewMessage(pattern="/help"))
+    bot.add_event_handler(settings_handler, events.NewMessage(pattern="/settings"))
     bot.add_event_handler(handle_settings_input, events.NewMessage)
-    bot.add_event_handler(set_thumbnail_handler, events.CallbackQuery(data=b"set_thumbnail"))
-    bot.add_event_handler(set_prefix_handler, events.CallbackQuery(data=b"set_prefix"))
-    bot.add_event_handler(add_rename_rule_handler, events.CallbackQuery(data=b"add_rename_rule"))
-    bot.add_event_handler(remove_rename_rule_handler, events.CallbackQuery(data=b"remove_rename_rule"))
-    bot.add_event_handler(remove_rule_callback_handler, events.CallbackQuery(data=lambda data: data.startswith(b"remove_rule_")))
-    bot.add_event_handler(done_settings_handler, events.CallbackQuery(data=b"done_settings"))
+    bot.add_event_handler(
+        set_thumbnail_handler, events.CallbackQuery(data=b"set_thumbnail")
+    )
+    bot.add_event_handler(
+        set_prefix_handler, events.CallbackQuery(data=b"set_prefix")
+    )
+    bot.add_event_handler(
+        add_rename_rule_handler, events.CallbackQuery(data=b"add_rename_rule")
+    )
+    bot.add_event_handler(
+        remove_rename_rule_handler, events.CallbackQuery(data=b"remove_rename_rule")
+    )
+    bot.add_event_handler(
+        remove_rule_callback_handler,
+        events.CallbackQuery(data=lambda data: data.startswith(b"remove_rule_")),
+    )
+    bot.add_event_handler(
+        done_settings_handler, events.CallbackQuery(data=b"done_settings")
+    )
     bot.add_event_handler(url_processing, events.NewMessage)
     bot.add_event_handler(rename_process, events.NewMessage)
-    bot.add_event_handler(default_file_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('default_')))
-    bot.add_event_handler(rename_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('rename_')))
-    bot.add_event_handler(cancel_handler, events.CallbackQuery(data=lambda data: data.decode().startswith('cancel_')))
+    bot.add_event_handler(
+        default_file_handler,
+        events.CallbackQuery(data=lambda data: data.decode().startswith("default_")),
+    )
+    bot.add_event_handler(
+        rename_handler,
+        events.CallbackQuery(data=lambda data: data.decode().startswith("rename_")),
+    )
+    bot.add_event_handler(
+        cancel_handler,
+        events.CallbackQuery(data=lambda data: data.decode().startswith("cancel_")),
+    )
 
 async def main():
-    register_handlers(bot) # Register handlers
+    register_handlers(bot)  # Register handlers
     await bot.start(bot_token=BOT_TOKEN)
     await bot.run_until_disconnected()
 
-if __name__ == '__main__':
-    logging.basicConfig(format='[%(levelname) 5s/%(asctime)s] %(name)s: %(message)s', level=logging.INFO)
+if __name__ == "__main__":
+    logging.basicConfig(
+        format="[%(levelname) 5s/%(asctime)s] %(name)s: %(message)s", level=logging.INFO
+    )
     asyncio.run(main())
