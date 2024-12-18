@@ -1,5 +1,3 @@
-# bot/settings_handlers.py
-
 from telethon import events, Button
 from bot.utils import get_user_settings, set_user_setting
 import logging
