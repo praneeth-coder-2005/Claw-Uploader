@@ -114,6 +114,7 @@ async def upload_file(event, temp_file_path, file_name, file_size, mime_type, ta
             upload_speed = file_size / elapsed_upload_time if elapsed_upload_time > 0 else 0
             await progress_bar.update_progress(1, upload_speed=upload_speed)
 
+            # Send file with thumbnail if available
             if thumb_id:
                 media = InputMediaUploadedDocument(
                     file=file,
