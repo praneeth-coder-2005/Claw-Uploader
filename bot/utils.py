@@ -71,11 +71,17 @@ def set_user_setting(user_id, key, value):
     settings[user_id_str][key] = value
     save_settings(settings)
 
-async def upload_thumb(event, user_id):
+async def upload_thumb(event, user_id, file=None):
     user_settings = get_user_settings(user_id)
     thumbnail_id = user_settings.get("thumbnail")
-
+    if file:
+        try:
+            uploaded_file = await event.client.upload_file(file)
+            return uploaded_file
+        except Exception as e:
+            logging.error(f"Error uploading thumbnail file : {e}")
+            return None
     if thumbnail_id:
-        return thumbnail_id
+            return thumbnail_id
 
     return None
