@@ -41,7 +41,7 @@ async def download_and_upload(event, url, file_name, file_size, mime_type, task_
         if message_id:
             progress_bar.set_message_id(message_id)
         
-        # Update progress_manager.progress_messages directly
+        # Update progress_manager.progress_messages directly:
         task_data["progress_bar"] = progress_bar
         progress_manager.progress_messages[task_id] = task_data
         
