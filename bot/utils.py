@@ -78,9 +78,8 @@ async def upload_thumb(event, file_path, user_id):
         thumbnail_id = user_settings.get("thumbnail")
 
         if thumbnail_id:
-            return thumbnail_id  # Use existing thumbnail ID
+            return thumbnail_id
 
-        # Use default thumbnail if user hasn't set one
         thumbnail_url = DEFAULT_THUMBNAIL
 
         async with aiohttp.ClientSession() as session:
@@ -88,12 +87,11 @@ async def upload_thumb(event, file_path, user_id):
                 if thumb_response.status == 200:
                     thumb_data = await thumb_response.read()
                     file = await event.client.upload_file(thumb_data, file_name="thumbnail.jpg")
-                    # No need to send a message here, just get the photo ID
                     photo = await event.client(SendMediaRequest(
                         peer=await event.client.get_input_entity(event.chat_id),
                         media=InputMediaUploadedPhoto(file=file),
-                        message="",  # Empty message
-                        silent=True  # Send silently
+                        message="",
+                        silent=True
                     ))
                     return photo.photo.id
                 else:
