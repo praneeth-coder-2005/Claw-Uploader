@@ -101,7 +101,7 @@ async def upload_file(event, temp_file_path, file_name, file_size, mime_type, ta
                 upload_chunk_size = math.ceil(file_size / MAX_FILE_PARTS)
                 logging.warning(f"Reducing upload chunk size to {upload_chunk_size / (1024*1024):.2f} MB due to excessive parts {parts}")
 
-            thumb_id = await upload_thumb(event, temp_file_path, user_id)
+            thumb_id = await upload_thumb(event, user_id)
 
             file = await event.client.upload_file(
                 f,
