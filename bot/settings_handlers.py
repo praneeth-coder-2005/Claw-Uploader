@@ -1,4 +1,4 @@
-from telethon import events, Button
+from telethon import events, Button, types  # Import types
 from bot.utils import get_user_settings, set_user_setting, upload_thumb
 import logging
 import os
